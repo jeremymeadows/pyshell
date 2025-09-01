@@ -1,0 +1,2 @@
+def prompt():
+    return "test >"
