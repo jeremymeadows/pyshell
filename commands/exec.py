@@ -1,10 +1,16 @@
+import argparse
+import os
 import subprocess
 
-def exec(args):
-    """Execute a command."""
+def exec(pyshenv, *args):
+    parser = argparse.ArgumentParser(prog="exec", description="Replace the shell with the given command.")
+    parser.add_argument("command", help="the command to execute with its arguments")
+    parser.add_argument("args", nargs="*", help="arguments for the command")
+    
+    if args and args[0] in ("--help", "-h"):
+        parser.print_help()
+        return
+    
+    command, args = (args[0], " ".join(args[1:]) if len(args) > 1 else None)
 
-    try:
-        result = subprocess.run(args, check=True, capture_output=True, text=True)
-        print(result.stdout)
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {e.stderr}")
+    os.execvpe(command, [command] + (shlex.split(args) if args else []), env=os.environ.copy())

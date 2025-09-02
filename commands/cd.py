@@ -1,17 +1,22 @@
+import argparse
 import os
 
-def cd(path: str):
-    """
-    Change the current working directory.
-    """
-    match path:
-        case None | "~":
-            path = os.getenv("HOME")
-        case "-":
-            path = os.getenv("OLDPWD", os.getcwd())
-        case _ if path.startswith("~"):
-            path = os.path.join(os.getenv("HOME"), s[1:])
+def cd(pyshenv, *args):
+    parser = argparse.ArgumentParser(prog="cd", description="Change the shell working directory.")
+    parser.add_argument("path", nargs="*", help="the path to change to")
+    args = parser.parse_args(args)
 
-    os.chdir(path)
+    path = " ".join(args.path)
+    if not path:
+        path = os.environ.get("HOME", os.getcwd())
+    elif path == "-":
+        path = os.getenv("OLDPWD", os.getcwd())
+
+    try:
+        os.chdir(path)
+    except FileNotFoundError:
+        print(f"cd: no such file or directory: {path}")
+        return
+
     os.environ["OLDPWD"] = os.getenv("PWD", "")
-    os.environ["PWD"] = os.path.abspath(path)
+    os.environ["PWD"] = os.getcwd()
