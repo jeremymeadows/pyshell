@@ -2,7 +2,7 @@ import argparse
 import readline
 import os
 
-def history(pyshenv, *args):
+def _history(pyshenv, *args):
     parser = argparse.ArgumentParser(prog="history", description="Display the command history.")
     parser.add_argument("-c", "--clear", action="store_true", help="Clear the command history.")
     parser.add_argument("-d", "--delete", type=int, nargs="+", help="Delete a command from the history.")
