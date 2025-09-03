@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+import argparse
 import glob
 import os
 import re
@@ -11,14 +14,11 @@ import traceback
 
 import commands
 
-from utils.termcolors import colors
-from utils.stdin import getch
+from utils.termcolors import fg as color
 
 
 def prompt():
-    uid_color = colors.fg.green if os.geteuid() != 0 else colors.fg.red
-    cwd_color = colors.fg.blue if os.access(os.getcwd(), os.W_OK) else colors.fg.red
-    return f"{uid_color}{{user}}{colors.fg.green}@{{host}} {cwd_color}{{cwd}}{colors.fg.white}\n> "
+    return f"{color.green}{{cwd}}{color.white}\n> "
 
 prompt_variables = {
     "user": os.getlogin(),
@@ -32,8 +32,7 @@ aliases = {
 }
 
 pyshenv = type("PyShellEnv", (object,), {
-    "globals": dict(),
-    "locals": dict(),
+    "namespace": dict(),
     "run": lambda: None,
     "aliases": aliases,
     "interactive": sys.stdin.isatty(),
@@ -42,8 +41,6 @@ pyshenv = type("PyShellEnv", (object,), {
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser(
         # prog="PyShell",
         description="A simple Python-based shell",
@@ -95,12 +92,12 @@ def main():
     if args.config:
         if os.path.isfile(args.config):
             commands.source(pyshenv, args.config)
-            for k, v in pyshenv.locals.items():
+            for k, v in pyshenv.namespace.items():
                 globals()[k] = v
         else:
-            print(f"{colors.fg.red}Config file not found: {args.config}{colors.fg.reset}")
+            print(f"{color.red}Config file not found: {args.config}{color.reset}")
             sys.exit(1)
-    
+
     try:
         readline.read_history_file(os.environ.get("HISTORY"))
     except FileNotFoundError:
@@ -120,11 +117,11 @@ def repl():
             input_str = input(prompt_str if pyshenv.interactive else "")
             readline.write_history_file(os.environ.get("HISTORY"))
         except KeyboardInterrupt:
-            print(f"{colors.fg.red}^C{colors.fg.reset}")
+            print(f"{color.red}^C{color.reset}")
             continue
         except EOFError:
             if pyshenv.interactive:
-                print(f"{colors.fg.red}^D{colors.fg.reset}")
+                print(f"{color.red}^D{color.reset}")
             elif pyshenv.noexit:
                 sys.stdin = open("/dev/tty")
                 pyshenv.interactive = True
@@ -142,17 +139,32 @@ def run(input_str):
     toks = shlex.split(input_str, posix=False)
     command, args = toks[0], []
 
-    for t in toks[1:]:
-        if t.startswith("#"):
-            break
+    out = sys.stdout
 
-        if not (t[0] in ('"', "'") and t[0] == t[-1]):
-            if "*" in t or "?" in t:
-                args += glob.glob(os.path.expanduser(os.path.expandvars(t)))
-            else:
-                args += [os.path.expanduser(os.path.expandvars(t))]
-        else:
-            args.append(t[1:-1])
+    for i, t in enumerate(toks[1:]):
+        # print(t)
+        match t:
+            case _ if t.startswith("#"):
+                break
+            # case _ if t.startswith("$(") and t.endswith(")"):
+            #     try:
+            #         t = subprocess.check_output(t[2:-1], shell=True, text=True).strip()
+            #     except subprocess.CalledProcessError as e:
+            #         print(f"{color.red}Command substitution failed: {e}{color.reset}")
+
+            case ">" | ">>":
+                out = open(os.path.expanduser(os.path.expandvars(toks[i + 2])), "w" if t == ">" else "a")
+                args.append(t[1:i + 1])
+                break
+            case "|":
+                pass
+            case _ if not (t[0] in ('"', "'") and t[0] == t[-1]):
+                if "*" in t or "?" in t:
+                    args += glob.glob(os.path.expanduser(os.path.expandvars(t)))
+                else:
+                    args += [os.path.expanduser(os.path.expandvars(t))]
+            case _:
+                args.append(t[1:-1])
 
     try:
         status = 0
@@ -162,13 +174,13 @@ def run(input_str):
             case "help":
                 parser.print_help()
             case "import":
-                exec("import " + " ".join(args), pyshenv.globals, pyshenv.locals)
+                exec("import " + " ".join(args), pyshenv.namespace, pyshenv.namespace)
             case _ if command in aliases:
                 staus = run(" ".join([*shlex.split(aliases[command], posix=False), *args]))
             case _ if command in commands.__all__:
                 status = getattr(commands, command)(pyshenv, *args) or 0
             case _ if shutil.which(command):
-                proc = subprocess.run([sys.executable, sys.argv[0], "-c", "exec", input_str], env=os.environ.copy())
+                proc = subprocess.run([sys.executable, sys.argv[0], "-c", "exec", input_str], env=os.environ.copy(), stdout=out)
                 status = proc.returncode
             case _:
                 expression = True
@@ -177,14 +189,17 @@ def run(input_str):
                 except SyntaxError:
                     expression = False
                     code = compile(input_str, "<string>", "exec")
-                
+
                 try:
                     func = eval if expression else exec
-                    if (res := func(input_str, pyshenv.globals, pyshenv.locals)) is not None:
-                        print(res)
+                    if (res := func(input_str, pyshenv.namespace, pyshenv.namespace)) is not None:
+                        print(res) 
+                    for k, v in pyshenv.namespace.items():
+                        if k in globals():
+                            globals()[k] = v
                 except Exception as e:
                     suggestion = traceback.format_exception(e)[-1].strip()
-                    print(f"{colors.fg.red}{suggestion}{colors.fg.reset}")
+                    print(f"{color.red}{suggestion}{color.reset}")
                     status = 1
     except KeyboardInterrupt:
         print()

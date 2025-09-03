@@ -13,13 +13,13 @@ def _alias(pyshenv, *args):
     except SystemExit:
         return
 
-    if len(args) > 0:
+    if not args:
+        for name, value in pyshenv.aliases.items():
+            print(f"alias {name}=\"{value}\"")
+    else:
         args = " ".join(args).strip()
         if "=" not in args:
             print("alias: invalid alias definition. Use the form name='value'")
             return
         alias, command = args.split("=", 1)
         pyshenv.aliases[alias.strip()] = command.strip().strip('"').strip("'")
-    else:
-        for name, value in pyshenv.aliases.items():
-            print(f"alias {name}=\"{value}\"")

@@ -7,9 +7,9 @@ Any valid Python is also valid PyShell, and it aims to implement all the importa
 - [x] swap between interactive and non-interactive modes
 - [ ] completion
 - [ ] pipelines
-- [ ] file output redirection
+- [x] file output redirection
 - [ ] sharing variables between python and shell commands
-- [ ] intersperce Python and shell in a single function
+- [ ] intersperce Python and shell in a single function / command substitution
 - [ ] background jobs / process management
 
 ## Shell Usage
@@ -37,6 +37,13 @@ python in the shell
 > r = 6
 > 2*pi * r**2
 226.1946710584651
+```
+
+### Output redirection
+```sh
+> echo foo > out.txt
+> cat out.txt
+foo
 ```
 
 ## Scripting

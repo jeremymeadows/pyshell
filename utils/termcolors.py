@@ -38,8 +38,32 @@ class Background:
     light_cyan = '\033[106m'
     light_white = '\033[107m'
 
+class Style:
+    bold = '\033[1m'
+    dim = '\033[2m'
+    italic = '\033[3m'
+    underline = '\033[4m'
+    blink = '\033[5m'
+    reverse = '\033[7m'
+    hidden = '\033[8m'
+    strikethrough = '\033[9m'
+    reset_all = '\033[0m'
+    reset_bold = '\033[21m'
+    reset_dim = '\033[22m'
+    reset_italic = '\033[23m'
+    reset_underline = '\033[24m'
+    reset_blink = '\033[25m'
+    reset_reverse = '\033[27m'
+    reset_hidden = '\033[28m'
+    reset_strikethrough = '\033[29m'
+
+fg = Foreground()
+bg = Background()
+style = Style()
+
 class TermColors:
-    fg = Foreground()
-    bg = Background()
+    fg = fg
+    bg = bg
+    style = style
 
 colors = TermColors()

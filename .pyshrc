@@ -1,37 +1,16 @@
 ### This file is sourced into `global()` scope when PyShell starts
 
-# Set environment variables
 import os
-os.environ['ENV_VAR'] = 'value'
+os.environ["TERM"] = "kitty"
 
-# Define aliases
-alias ll="ls -l"
-alias proj="cd ~/Projects/"
+alias vi = nvim
+alias rm = trash
 
-# Override the default prompt function
+from utils.termcolors import fg as color
+
 def prompt():
-    return "test >"
+    uid_color = color.green if os.geteuid() != 0 else color.red
+    cwd_color = color.blue if os.access(os.getcwd(), os.W_OK) else color.red
+    return f"{uid_color}{{user}}{color.green}@{{host}} {cwd_color}{{cwd}}{color.white}\n>\xa0"
 
-# Run any pyshell code
 print("Welcome to PyShell!")
-pwd
-
-# Import commonly used modules
-from math import pi, e, log, log10, log2
-
-# Define Python functions
-def double(x):
-    return x * 2
-
-# Create a shell command
-from commands import command
-@command("myfunc")
-def _myfunc(_, *args):
-    print("This is a shell function")
-    print("I was passed", args)
-myfunc 1 2 3
-
-### TODO
-# pipes
-# mixing Python and shell commands in single function
-# background jobs
