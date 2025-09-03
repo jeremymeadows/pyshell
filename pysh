@@ -1,0 +1,4 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i sh
+
+python -m pyshell $@

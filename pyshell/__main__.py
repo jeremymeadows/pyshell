@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import argparse
 import glob
 import os
@@ -12,37 +10,13 @@ import subprocess
 import sys
 import traceback
 
-import commands
-
-from utils.termcolors import fg as color
-
-
-def prompt():
-    return f"{color.green}{{cwd}}{color.white}\n> "
-
-prompt_variables = {
-    "user": os.getlogin(),
-    "host": socket.gethostname(),
-    "symbol": "",
-}
-
-aliases = {
-    "..": "cd ..",
-    "ll": "ls -l",
-}
-
-pyshenv = type("PyShellEnv", (object,), {
-    "namespace": dict(),
-    "run": lambda: None,
-    "aliases": aliases,
-    "interactive": sys.stdin.isatty(),
-    "noexit": False,
-})()
+from pyshell import pyshenv, prompt, commands
+from pyshell.utils.termcolors import fg as color
 
 
 def main():
     parser = argparse.ArgumentParser(
-        # prog="PyShell",
+        prog="pysh",
         description="A simple Python-based shell",
         epilog="Still in development",
         add_help=True,
@@ -111,7 +85,7 @@ def main():
 
 def repl():
     while True:
-        prompt_str = prompt().format(cwd=os.path.join(os.getcwd().replace(os.getenv("HOME", "~"), "~"), ""), **prompt_variables)
+        prompt_str = prompt().format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })
 
         try:
             input_str = input(prompt_str if pyshenv.interactive else "")
@@ -175,12 +149,17 @@ def run(input_str):
                 parser.print_help()
             case "import":
                 exec("import " + " ".join(args), pyshenv.namespace, pyshenv.namespace)
-            case _ if command in aliases:
-                staus = run(" ".join([*shlex.split(aliases[command], posix=False), *args]))
+            case _ if command in pyshenv.aliases:
+                staus = run(" ".join([*shlex.split(pyshenv.aliases[command], posix=False), *args]))
             case _ if command in commands.__all__:
                 status = getattr(commands, command)(pyshenv, *args) or 0
             case _ if shutil.which(command):
-                proc = subprocess.run([sys.executable, sys.argv[0], "-c", "exec", input_str], env=os.environ.copy(), stdout=out)
+                proc = subprocess.run(
+                    [sys.executable, "-m", "pyshell", "-c", "exec", input_str],
+                    cwd=os.path.dirname(sys.argv[0]),
+                    env=os.environ.copy(),
+                    stdout=out,
+                )
                 status = proc.returncode
             case _:
                 expression = True
@@ -188,7 +167,10 @@ def run(input_str):
                     code = compile(input_str, "<string>", "eval")
                 except SyntaxError:
                     expression = False
-                    code = compile(input_str, "<string>", "exec")
+                    try:
+                        code = compile(input_str, "<string>", "exec")
+                    except SyntaxError as e:
+                        pass
 
                 try:
                     func = eval if expression else exec

@@ -1,4 +1,5 @@
 # PyShell
+
 ![](pie_shell.png)
 
 PyShell is a simple shell built on top of the Python interpreter.
@@ -6,11 +7,19 @@ Any valid Python is also valid PyShell, and it aims to implement all the importa
 - [x] custom commands
 - [x] swap between interactive and non-interactive modes
 - [ ] completion
-- [ ] pipelines
 - [x] file output redirection
+- [ ] pipelines
 - [ ] sharing variables between python and shell commands
 - [ ] intersperce Python and shell in a single function / command substitution
 - [ ] background jobs / process management
+
+## Running PyShell
+
+```sh
+git clone https://github.com/jeremymeadows/pyshell.git
+cd pyshell
+python -m pyshell
+```
 
 ## Shell Usage
 
@@ -50,10 +59,10 @@ foo
 
 PyShell files can interpret any valid Python code or shell commands.
 They can also create custom shell commands from a Python function which can be loaded into the current enviromentusing the `source` command.
-A `.pyshrc` is sourced when the shell starts, and that file can be used to customize/configure PyShell.
+`~/.pyshrc` is sourced when the shell starts, and that file can be used to customize/configure PyShell.
 
 ```python
-from commands import command
+from pyshell.commands import command
 
 @command("myfunc")
 def _myfunc(_, *args):
@@ -68,10 +77,14 @@ PyShell can also be used as an interpreter as opposed to an interactive shell vi
 Another argument can be used to swap into an interactive shell using the environment created.
 
 ```sh
-$ python shell.py script.pysh # using file arguments
+$ # execute a script passed in via file arguments
+$ pysh script.pysh
 [ output of script and interpreter closes ]
-$ echo "did_it_work = 'yes'" | python shell.py --noexit # using pipe
-[ output of script and swap to interactive mode ]
-> print(did_it_work) # now in the repl
+```
+```sh
+$ # run a command using a pipe then continue in the repl 
+$ echo "did_it_work = 'yes'" | pysh --noexit
+[ command executes and swaps to interactive mode ]
+> print(did_it_work) # the variable can still be used
 yes
 ```

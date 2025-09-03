@@ -3,10 +3,11 @@
 import os
 os.environ["TERM"] = "kitty"
 
+alias ".." = "cd .."
 alias vi = nvim
 alias rm = trash
 
-from utils.termcolors import fg as color
+from pyshell.utils.termcolors import fg as color
 
 def prompt():
     uid_color = color.green if os.geteuid() != 0 else color.red
