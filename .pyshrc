@@ -1,2 +1,37 @@
+### This file is sourced into `global()` scope when PyShell starts
+
+# Set environment variables
+import os
+os.environ['ENV_VAR'] = 'value'
+
+# Define aliases
+alias ll="ls -l"
+alias proj="cd ~/Projects/"
+
+# Override the default prompt function
 def prompt():
     return "test >"
+
+# Run any pyshell code
+print("Welcome to PyShell!")
+pwd
+
+# Import commonly used modules
+from math import pi, e, log, log10, log2
+
+# Define Python functions
+def double(x):
+    return x * 2
+
+# Create a shell command
+from commands import command
+@command("myfunc")
+def _myfunc(_, *args):
+    print("This is a shell function")
+    print("I was passed", args)
+myfunc 1 2 3
+
+### TODO
+# pipes
+# mixing Python and shell commands in single function
+# background jobs

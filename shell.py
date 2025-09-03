@@ -14,7 +14,7 @@ import commands
 from utils.termcolors import colors
 from utils.stdin import getch
 
-@staticmethod
+
 def prompt():
     uid_color = colors.fg.green if os.geteuid() != 0 else colors.fg.red
     cwd_color = colors.fg.blue if os.access(os.getcwd(), os.W_OK) else colors.fg.red
@@ -34,7 +34,6 @@ aliases = {
 pyshenv = type("PyShellEnv", (object,), {
     "globals": dict(),
     "locals": dict(),
-    "prompt": prompt,
     "run": lambda: None,
     "aliases": aliases,
     "interactive": sys.stdin.isatty(),
@@ -56,11 +55,11 @@ def main():
     parser.add_argument("-v", "--version", action="version", version="%(prog)s 0.0.1")
     parser.add_argument("-p", "--pure", action="store_true", help="run the shell without inheriting the environment variables")
     parser.add_argument("-i", "--interactive", action="store_true", help="run the shell in interactive mode even if stdin is not a terminal")
-    parser.add_argument("-e", "--env", type=str, nargs="+", help="set environment variables (KEY=VALUE)")
+    parser.add_argument("-n", "--noexit", action="store_true", help="do not exit after running a command or script file")
     parser.add_argument("-f", "--config", type=str, help="path to config file")
+    parser.add_argument("-e", "--env", type=str, nargs="+", help="set environment variables (KEY=VALUE)")
     parser.add_argument("-c", "--command", type=str, nargs="+", help="run a single command and exit")
     parser.add_argument("file", type=str, nargs="*", help="run a PyShell script file and exit")
-    parser.add_argument("-n", "--noexit", action="store_true", help="do not exit after running a command or script file")
 
     args = parser.parse_args()
     sys.argv[0] = os.path.join(os.getcwd(), os.path.basename(sys.argv[0]))
@@ -95,8 +94,9 @@ def main():
 
     if args.config:
         if os.path.isfile(args.config):
-            with open(args.config, "r") as f:
-                exec(f.read(), globals(), locals())
+            commands.source(pyshenv, args.config)
+            for k, v in pyshenv.locals.items():
+                globals()[k] = v
         else:
             print(f"{colors.fg.red}Config file not found: {args.config}{colors.fg.reset}")
             sys.exit(1)
@@ -114,7 +114,7 @@ def main():
 
 def repl():
     while True:
-        prompt_str = pyshenv.prompt().format(cwd=os.path.join(os.getcwd().replace(os.getenv("HOME", "~"), "~"), ""), **prompt_variables)
+        prompt_str = prompt().format(cwd=os.path.join(os.getcwd().replace(os.getenv("HOME", "~"), "~"), ""), **prompt_variables)
 
         try:
             input_str = input(prompt_str if pyshenv.interactive else "")
@@ -136,6 +136,7 @@ def repl():
 
         run(input_str)
 
+
 @staticmethod
 def run(input_str):
     toks = shlex.split(input_str, posix=False)
@@ -154,6 +155,7 @@ def run(input_str):
             args.append(t[1:-1])
 
     try:
+        status = 0
         match command:
             case "":
                 return
@@ -162,11 +164,12 @@ def run(input_str):
             case "import":
                 exec("import " + " ".join(args), pyshenv.globals, pyshenv.locals)
             case _ if command in aliases:
-                run(" ".join([*shlex.split(aliases[command], posix=False), *args]))
+                staus = run(" ".join([*shlex.split(aliases[command], posix=False), *args]))
             case _ if command in commands.__all__:
-                getattr(commands, command)(pyshenv, *args)
+                status = getattr(commands, command)(pyshenv, *args) or 0
             case _ if shutil.which(command):
-                subprocess.run([sys.executable, sys.argv[0], "-c", "exec", input_str], env=os.environ.copy())
+                proc = subprocess.run([sys.executable, sys.argv[0], "-c", "exec", input_str], env=os.environ.copy())
+                status = proc.returncode
             case _:
                 expression = True
                 try:
@@ -182,8 +185,12 @@ def run(input_str):
                 except Exception as e:
                     suggestion = traceback.format_exception(e)[-1].strip()
                     print(f"{colors.fg.red}{suggestion}{colors.fg.reset}")
+                    status = 1
     except KeyboardInterrupt:
         print()
+    
+    os.environ["LAST_EXIT_CODE"] = str(status)
+    return status
 
 
 if __name__ == "__main__":
