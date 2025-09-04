@@ -3,13 +3,12 @@
 ![](pie_shell.png)
 
 PyShell is a simple shell built on top of the Python interpreter.
-Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones (features in development):
+Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones (still in development):
 - [x] custom commands
-- [x] swap between interactive and non-interactive modes
 - [ ] completion
-- [x] file output redirection
+- [x] file input/output redirection
 - [x] command substitution
-- [ ] pipelines
+- [x] pipelines
 - [ ] sharing variables between Python and shell commands
 - [ ] intersperce Python and shell in a function
 - [ ] background jobs / process management
@@ -34,7 +33,7 @@ value
 
 ### Define aliases
 ```sh
-> alias ll="ls -l"
+> alias ls="ls --color"
 > alias p="print('python in the shell')"
 > p
 python in the shell
@@ -49,13 +48,14 @@ python in the shell
 226.1946710584651
 ```
 
-### Output redirection
+### Input/Output redirection
 ```sh
 > echo foo > out.txt
 > print("bar") >> out.txt
-> cat out.txt
+> cat < out.txt
 foo
 bar
+> cat < out.txt > duplicate.txt
 ```
 
 ### Command substitution
@@ -65,6 +65,12 @@ Desktop Downloads Documents Music Pictures Video
 > file_name = "loremipsum.txt"
 > echo $(open(file_name).readlines()[0].upper())
 LOREM IPSUM DOLOR SIT AMET
+```
+
+### Pipelines
+```sh
+> cat file.txt | cowsay | lolcat
+> ls ~ | grep foo
 ```
 
 ## Scripting

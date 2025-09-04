@@ -1,5 +1,7 @@
 import argparse
 
+from pyshell import runner
+
 
 def _source(pyshenv, *args):
     parser = argparse.ArgumentParser(prog="source", description="Execute commands from a file in the current shell environment.")
@@ -13,7 +15,7 @@ def _source(pyshenv, *args):
     for file_path in args.files:
         for chunk in parse_file(file_path):
             try:
-                pyshenv.run(chunk)
+                runner.run_pipeline(runner.parse(chunk))
             except KeyboardInterrupt:
                 print(f"\r{colors.fg.red}^C{colors.fg.reset}")
                 continue

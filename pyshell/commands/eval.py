@@ -1,5 +1,6 @@
 import argparse
 
+from pyshell import runner
 
 def _eval(pyshenv, *args):
     parser = argparse.ArgumentParser(prog="eval", description="Evaluate a PyShell expression.")
@@ -11,4 +12,4 @@ def _eval(pyshenv, *args):
         return
 
     input_str = " ".join(args).strip()
-    pyshenv.run(input_str)
+    runner.run_pipeline(runner.parse(input_str))

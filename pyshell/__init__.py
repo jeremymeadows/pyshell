@@ -8,23 +8,23 @@ for module in __all__:
 
 import os, socket, sys
 
-pyshenv = type("PyShellEnv", (object,), {
-    "namespace": dict(),
-    "run": lambda: None,
-    "interactive": sys.stdin.isatty(),
-    "repl": True,
-    "aliases": dict(),
-    "prompt_subs": {
-        "user": os.getlogin(),
-        "host": socket.gethostname(),
-        "cwd": lambda: os.path.join(os.getcwd().replace(os.getenv("HOME", "~"), "~"), ""),
-    },
-})()
-
-
 def prompt():
     from pyshell.utils.termcolors import fg as color
     return f"{color.green}{{cwd}}{color.white}\n> "
 
+class PyShellEnv:
+    def __init__(self):
+        self.namespace = { "prompt": prompt }
+        self.interactive = sys.stdin.isatty()
+        self.repl = True
+        self.aliases = dict()
+        self.prompt_subs = {
+            "user": os.getlogin(),
+            "host": socket.gethostname(),
+            "cwd": lambda: os.path.join(os.getcwd().replace(os.getenv("HOME", "~"), "~"), ""),
+        }
 
-__all__ += [pyshenv, prompt]
+pyshenv = PyShellEnv()
+
+
+__all__ += ["pyshenv"]
