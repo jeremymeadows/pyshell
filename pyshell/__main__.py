@@ -161,7 +161,9 @@ def run(input_str, out=sys.stdout, err=sys.stderr):
             case "import":
                 exec("import " + " ".join(args), pyshenv.namespace, pyshenv.namespace)
             case _ if command in pyshenv.aliases:
-                staus = run(" ".join([*shlex.split(pyshenv.aliases[command], posix=False), *args]))
+                cmd = pyshenv.aliases.pop(command)
+                status = run(" ".join([*shlex.split(cmd, posix=False), *args]))
+                pyshenv.aliases[command] = cmd
             case _ if command in commands.__all__:
                 status = getattr(commands, command)(pyshenv, *args) or 0
             case _ if shutil.which(command):

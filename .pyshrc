@@ -6,6 +6,15 @@ import os
 os.environ["TERM"] = "kitty"
 
 alias ".." = "cd .."
+alias ls = ls -hF --color --group-directories-first
+alias mkdir = mkdir -p
+alias grep = grep --color
+alias df = df -h
+
+alias su = sudo su
+alias rmod = chmod 644
+alias xmod = chmod 755
+alias cat = bat
 alias vi = nvim
 alias rm = trash
 
