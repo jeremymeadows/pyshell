@@ -2,6 +2,7 @@ import argparse
 import re
 import shlex
 
+
 def _alias(pyshenv, *args):
     parser = argparse.ArgumentParser(prog="alias", description="Create or display command aliases.")
     # parser.register('type', 'alias', lambda s: re.match(".* ?= ?[\"'].*[\"']"))

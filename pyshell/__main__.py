@@ -27,7 +27,7 @@ def main():
     parser.add_argument("-v", "--version", action="version", version="%(prog)s 0.0.1")
     parser.add_argument("-p", "--pure", action="store_true", help="run the shell without inheriting the environment variables")
     parser.add_argument("-i", "--interactive", action="store_true", help="run the shell in interactive mode even if stdin is not a terminal")
-    parser.add_argument("-n", "--noexit", action="store_true", help="do not exit after running a command or script file")
+    parser.add_argument("-r", "--repl", action="store_true", help="enter the repl after running a command or script file")
     parser.add_argument("-f", "--config", type=str, help="path to config file")
     parser.add_argument("-e", "--env", type=str, nargs="+", help="set environment variables (KEY=VALUE)")
     parser.add_argument("-c", "--command", type=str, nargs="+", help="run a single command and exit")
@@ -37,17 +37,12 @@ def main():
     sys.argv[0] = os.path.join(os.getcwd(), os.path.basename(sys.argv[0]))
 
     if args.pure:
-        env = { k: v for k, v in os.environ.items() if k in ("USER", "HOME", "TERM", "PATH", "EDITOR", "PAGER", "SHLVL", "DISPLAY") }
+        env = { k: v for k, v in os.environ.items() if k in ("USER", "HOME", "TERM", "PATH", "EDITOR", "PAGER", "SHLVL", "DISPLAY") or k.startswith("PYTHON") }
         os.environ.clear()
         os.environ = env
     
-    if args.interactive:
-        pyshenv.interactive = True
-    
-    if args.noexit:
-        pyshenv.noexit = True
-    
-    os.environ["CONFIG"] = os.path.join(os.path.expanduser("~"), ".pyshrc")
+    config = args.config or os.environ.get("CONFIG") or os.path.join(os.path.expanduser("~"), ".pyshrc")
+    os.environ["CONFIG"] = config
     
     os.environ["PWD"] = os.getcwd()
     os.environ["OLDPWD"] = os.getcwd()
@@ -64,13 +59,20 @@ def main():
             key, value = var.split("=", 1)
             env[key] = value
 
-    if args.config:
-        if os.path.isfile(args.config):
-            commands.source(pyshenv, args.config)
-            for k, v in pyshenv.namespace.items():
-                globals()[k] = v
-        else:
-            print(f"{color.red}Config file not found: {args.config}{color.reset}")
+    if args.interactive:
+        pyshenv.interactive = True
+
+    if args.command or args.file:
+        pyshenv.repl = False
+
+    for file in [config, *args.file]:
+        if os.path.isfile(file):
+            commands.source(pyshenv, file)
+        elif file == config and not os.environ.get("CONFIG_WARN", ""):
+            os.environ["CONFIG_WARN"] = "1"
+            print(f"{color.yellow}Config file ({config}) was not found{color.reset}")
+        elif file != config:
+            print(f"{color.red}File not found: {file}{color.reset}")
             sys.exit(1)
 
     try:
@@ -80,7 +82,11 @@ def main():
 
     if args.command:
         run(" ".join(args.command))
-    else:
+
+    if args.repl:
+        pyshenv.repl = True
+
+    if pyshenv.repl:
         repl()
 
 
@@ -97,7 +103,7 @@ def repl():
         except EOFError:
             if pyshenv.interactive:
                 print(f"{color.red}^D{color.reset}")
-            elif pyshenv.noexit:
+            elif pyshenv.repl:
                 sys.stdin = open("/dev/tty")
                 pyshenv.interactive = True
                 continue
@@ -161,7 +167,7 @@ def run(input_str, out=sys.stdout, err=sys.stderr):
             case _ if shutil.which(command):
                 proc = subprocess.run(
                     [sys.executable, "-m", "pyshell", "-c", "exec", " ".join([command, *args])],
-                    cwd=os.path.dirname(sys.argv[0]),
+                    cwd=os.getcwd(),
                     env=os.environ.copy(),
                     stdout=out,
                 )

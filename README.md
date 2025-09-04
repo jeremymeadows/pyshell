@@ -95,7 +95,7 @@ Another argument can be used to swap into an interactive shell using the environ
 ```
 ```sh
 > # run a command using a pipe then continue in the repl 
-> echo "did_it_work = 'yes'" | pysh --noexit
+> echo "did_it_work = 'yes'" | pysh --repl
 [ command executes and swaps to interactive mode ]
 > print(did_it_work) # the variable can still be used
 yes

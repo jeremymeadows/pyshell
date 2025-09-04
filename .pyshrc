@@ -1,5 +1,7 @@
 ### This file is sourced into `global()` scope when PyShell starts
 
+import pyshell
+
 import os
 os.environ["TERM"] = "kitty"
 
@@ -14,4 +16,5 @@ def prompt():
     cwd_color = color.blue if os.access(os.getcwd(), os.W_OK) else color.red
     return f"{uid_color}{{user}}{color.green}@{{host}} {cwd_color}{{cwd}}{color.white}\n>\xa0"
 
-print("Welcome to PyShell!")
+if pyshell.pyshenv.repl:
+    print("Welcome to PyShell!")

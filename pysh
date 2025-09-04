@@ -1,4 +1,11 @@
 #!/usr/bin/env nix-shell
-#!nix-shell -i sh
+#!nix-shell -i sh -p python312
 
+if [[ -L $0 ]]; then
+    dir=$(dirname $(readlink $0))
+else
+    dir=$(dirname $0)
+fi
+
+export PYTHONPATH="$dir:$PYTHONPATH"
 python -m pyshell $@

@@ -3,6 +3,7 @@ import os
 import subprocess
 import shlex
 
+
 def _exec(pyshenv, *args):
     parser = argparse.ArgumentParser(prog="exec", description="Replace the shell with the given command.")
     parser.add_argument("command", help="the command to execute with its arguments")

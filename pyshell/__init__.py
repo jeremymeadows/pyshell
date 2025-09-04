@@ -12,7 +12,7 @@ pyshenv = type("PyShellEnv", (object,), {
     "namespace": dict(),
     "run": lambda: None,
     "interactive": sys.stdin.isatty(),
-    "noexit": False,
+    "repl": True,
     "aliases": dict(),
     "prompt_subs": {
         "user": os.getlogin(),
