@@ -1,5 +1,6 @@
 import argparse
 import glob
+import io
 import os
 import re
 import readline
@@ -105,40 +106,44 @@ def repl():
         if not input_str:
             continue
 
+        sys.__stdout__ = sys.stdout
         run(input_str)
 
 
 @staticmethod
-def run(input_str):
+def run(input_str, out=sys.stdout, err=sys.stderr):
     toks = shlex.split(input_str, posix=False)
     command, args = toks[0], []
 
-    out = sys.stdout
+    for i, t in enumerate(toks):
+        if i == 0:
+            continue
 
-    for i, t in enumerate(toks[1:]):
-        # print(t)
         match t:
             case _ if t.startswith("#"):
                 break
-            # case _ if t.startswith("$(") and t.endswith(")"):
-            #     try:
-            #         t = subprocess.check_output(t[2:-1], shell=True, text=True).strip()
-            #     except subprocess.CalledProcessError as e:
-            #         print(f"{color.red}Command substitution failed: {e}{color.reset}")
-
             case ">" | ">>":
-                out = open(os.path.expanduser(os.path.expandvars(toks[i + 2])), "w" if t == ">" else "a")
-                args.append(t[1:i + 1])
+                out = open(os.path.expanduser(os.path.expandvars(toks[i + 1])), "w" if t == ">" else "a")
+                input_str = input_str.rstrip(" ".join(toks[i:]))
                 break
+            case _ if t.startswith("$(") and t.endswith(")"):
+                try:
+                    capture = io.StringIO()
+                    run(t[2:-1], out=capture)
+                    capture.seek(0)
+                    t = capture.read().strip()
+                    args += [os.path.expanduser(os.path.expandvars(t))]
+                except Exception as e:
+                    print(f"{color.red}Command substitution failed: {e}{color.reset}")
             case "|":
                 pass
-            case _ if not (t[0] in ('"', "'") and t[0] == t[-1]):
+            case _ if t[0] in ('"', "'") and t[0] == t[-1]:
+                args.append(t[1:-1])
+            case _:
                 if "*" in t or "?" in t:
                     args += glob.glob(os.path.expanduser(os.path.expandvars(t)))
                 else:
                     args += [os.path.expanduser(os.path.expandvars(t))]
-            case _:
-                args.append(t[1:-1])
 
     try:
         status = 0
@@ -155,7 +160,7 @@ def run(input_str):
                 status = getattr(commands, command)(pyshenv, *args) or 0
             case _ if shutil.which(command):
                 proc = subprocess.run(
-                    [sys.executable, "-m", "pyshell", "-c", "exec", input_str],
+                    [sys.executable, "-m", "pyshell", "-c", "exec", " ".join([command, *args])],
                     cwd=os.path.dirname(sys.argv[0]),
                     env=os.environ.copy(),
                     stdout=out,
@@ -174,8 +179,13 @@ def run(input_str):
 
                 try:
                     func = eval if expression else exec
+                    sys.stdout = out
+
                     if (res := func(input_str, pyshenv.namespace, pyshenv.namespace)) is not None:
-                        print(res) 
+                        print(res, file=out) 
+                    
+                    sys.stdout = sys.__stdout__
+
                     for k, v in pyshenv.namespace.items():
                         if k in globals():
                             globals()[k] = v

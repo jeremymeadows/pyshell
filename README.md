@@ -3,14 +3,15 @@
 ![](pie_shell.png)
 
 PyShell is a simple shell built on top of the Python interpreter.
-Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones:
+Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones (features in development):
 - [x] custom commands
 - [x] swap between interactive and non-interactive modes
 - [ ] completion
 - [x] file output redirection
+- [x] command substitution
 - [ ] pipelines
-- [ ] sharing variables between python and shell commands
-- [ ] intersperce Python and shell in a single function / command substitution
+- [ ] sharing variables between Python and shell commands
+- [ ] intersperce Python and shell in a function
 - [ ] background jobs / process management
 
 ## Running PyShell
@@ -39,7 +40,7 @@ value
 python in the shell
 ```
 
-### Use python modules in your shell
+### Use Python modules in your shell
 ```python
 > cd ~/directory
 > from math import pi
@@ -51,15 +52,26 @@ python in the shell
 ### Output redirection
 ```sh
 > echo foo > out.txt
+> print("bar") >> out.txt
 > cat out.txt
 foo
+bar
+```
+
+### Command substitution
+```sh
+> ls $(os.getenv("HOME"))
+Desktop Downloads Documents Music Pictures Video
+> file_name = "loremipsum.txt"
+> echo $(open(file_name).readlines()[0].upper())
+LOREM IPSUM DOLOR SIT AMET
 ```
 
 ## Scripting
 
 PyShell files can interpret any valid Python code or shell commands.
 They can also create custom shell commands from a Python function which can be loaded into the current enviromentusing the `source` command.
-`~/.pyshrc` is sourced when the shell starts, and that file can be used to customize/configure PyShell.
+By default, `~/.pyshrc` is sourced when the shell starts, and that file can be used to customize/configure PyShell.
 
 ```python
 from pyshell.commands import command
@@ -77,13 +89,13 @@ PyShell can also be used as an interpreter as opposed to an interactive shell vi
 Another argument can be used to swap into an interactive shell using the environment created.
 
 ```sh
-$ # execute a script passed in via file arguments
-$ pysh script.pysh
+> # execute a script passed in via file arguments
+> pysh script.pysh
 [ output of script and interpreter closes ]
 ```
 ```sh
-$ # run a command using a pipe then continue in the repl 
-$ echo "did_it_work = 'yes'" | pysh --noexit
+> # run a command using a pipe then continue in the repl 
+> echo "did_it_work = 'yes'" | pysh --noexit
 [ command executes and swaps to interactive mode ]
 > print(did_it_work) # the variable can still be used
 yes
