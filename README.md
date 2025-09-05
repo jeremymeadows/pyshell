@@ -5,7 +5,7 @@
 PyShell is a simple shell built on top of the Python interpreter.
 Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones (still in development):
 - [x] custom commands
-- [ ] completion
+- [x] completion
 - [x] file input/output redirection
 - [x] command substitution
 - [x] pipelines
@@ -76,8 +76,11 @@ LOREM IPSUM DOLOR SIT AMET
 ## Scripting
 
 PyShell files can interpret any valid Python code or shell commands.
-They can also create custom shell commands from a Python function which can be loaded into the current enviromentusing the `source` command.
+They can also create custom shell commands from a Python function which can be loaded into the current enviroment using the `source` command.
 By default, `~/.pyshrc` is sourced when the shell starts, and that file can be used to customize/configure PyShell.
+
+### Create Shell Commands
+Add the `command` decorator to a function to give it a name and allow it to be called as a shell command.
 
 ```python
 from pyshell.commands import command
@@ -91,18 +94,28 @@ def _myfunc(_, *args):
 I was passed ('1', '2', '3')
 ```
 
-PyShell can also be used as an interpreter as opposed to an interactive shell via either command line arguments or by feeding in from a pipe.
-Another argument can be used to swap into an interactive shell using the environment created.
+### Custom Tab Completions
+A dictionary can be registered with the completer which has a prefix as the key.
+If the current text matches the prefix then the value array will be presented as suggestions for the next argument.
 
-```sh
-> # execute a script passed in via file arguments
-> pysh script.pysh
-[ output of script and interpreter closes ]
-```
-```sh
-> # run a command using a pipe then continue in the repl 
-> echo "did_it_work = 'yes'" | pysh --repl
-[ command executes and swaps to interactive mode ]
-> print(did_it_work) # the variable can still be used
-yes
+```python
+from pyshell.complete import completer
+
+entries = {
+    "docker": ["build", "run", "exec", "ps", "images", "logs", "rm", "stop", "start"],
+}
+
+try:
+    # if the docker package is installed, add completions to the container's names
+    import docker
+    
+    client = docker.from_env()
+    entries["docker rm"] = []
+
+    for c in client.containers.list():
+        entries["docker rm"] += [c.name]
+except ModuleNotFoundError:
+    pass
+
+completer.register(entries)
 ```

@@ -7,7 +7,7 @@ import subprocess
 import traceback
 import shlex
 
-from pyshell import commands
+from pyshell import pyshenv, commands
 from pyshell.utils.termcolors import fg as color
 
 
@@ -131,8 +131,6 @@ def run_pipeline(pipeline):
 
 
 def run(command: Command):
-    from pyshell import pyshenv
-
     try:
         status = 0
         proc = None
@@ -143,10 +141,15 @@ def run(command: Command):
             case "help":
                 parser.print_help()
             case "import":
-                exec("import " + " ".join(command.args), pyshenv.namespace, pyshenv.namespace)
+                try:
+                    exec("import " + " ".join(command.args), pyshenv.namespace, pyshenv.namespace)
+                except ModuleNotFoundError as e:
+                    suggestion = traceback.format_exception(e)[-1].strip()
+                    print(f"{color.red}{suggestion}{color.reset}")
+                    status = 1
             case _ if command.command in pyshenv.aliases:
                 cmd = pyshenv.aliases.pop(command.command)
-                status = run(" ".join([*shlex.split(cmd, posix=False), *args]))
+                status = run_pipeline(parse(" ".join([*shlex.split(cmd, posix=False), *command.args])))
                 pyshenv.aliases[command] = cmd
             case _ if command.command in commands.__all__:
                 status = getattr(commands, command.command)(pyshenv, *command.args) or 0

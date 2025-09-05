@@ -11,9 +11,10 @@ import subprocess
 import sys
 import traceback
 
-from pyshell import pyshenv, runner
+from pyshell import pyshenv, runner, complete
 from pyshell.commands import source
 from pyshell.utils.termcolors import fg as color
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -34,7 +35,6 @@ def main():
     parser.add_argument("file", type=str, nargs="*", help="run a PyShell script file and exit")
 
     args = parser.parse_args()
-    sys.argv[0] = os.path.join(os.getcwd(), os.path.basename(sys.argv[0]))
 
     if args.pure:
         env = { k: v for k, v in os.environ.items() if k in ("USER", "HOME", "TERM", "PATH", "EDITOR", "PAGER", "SHLVL", "DISPLAY") or k.startswith("PYTHON") }
@@ -47,7 +47,7 @@ def main():
     os.environ["PWD"] = os.getcwd()
     os.environ["OLDPWD"] = os.getcwd()
     
-    os.environ["SHELL"] = sys.argv[0]
+    os.environ["SHELL"] = "pysh"
     os.environ["SHLVL"] = str(int(os.environ.get("SHLVL", "0")) + 1)
 
     os.environ["HISTORY"] = os.path.join(os.path.expanduser("~"), ".pyshell_history")
@@ -88,6 +88,7 @@ def main():
 
     if pyshenv.repl:
         prompt = pyshenv.namespace["prompt"]
+        complete.enable()
 
         while True:
             prompt_str = prompt().format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })

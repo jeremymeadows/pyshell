@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import shlex
+import shutil
 
 
 def _exec(pyshenv, *args):
@@ -13,5 +14,5 @@ def _exec(pyshenv, *args):
         parser.print_help()
         return
     
-    command, args = (args[0], " ".join(args[1:]) if len(args) > 1 else None)
-    os.execvpe(command, [command] + (shlex.split(args) if args else []), env=os.environ.copy())
+    if path := shutil.which(args[0]):
+        os.execv(path, args)

@@ -1,15 +1,9 @@
-import importlib
-import pkgutil
-
-__all__ = [module.name for module in pkgutil.iter_modules(__path__) if module.name != '__main__']
-for module in __all__:
-    importlib.import_module(f"{__name__}.{module}")
-
-
 import os, socket, sys
 
+from pyshell.utils.termcolors import fg as color
+
+
 def prompt():
-    from pyshell.utils.termcolors import fg as color
     return f"{color.green}{{cwd}}{color.white}\n> "
 
 class PyShellEnv:
@@ -27,4 +21,8 @@ class PyShellEnv:
 pyshenv = PyShellEnv()
 
 
+import importlib, pkgutil
+__all__ = [module.name for module in pkgutil.iter_modules(__path__) if module.name != '__main__']
+for module in __all__:
+    importlib.import_module(f"{__name__}.{module}")
 __all__ += ["pyshenv"]
