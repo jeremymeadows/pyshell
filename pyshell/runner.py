@@ -1,7 +1,8 @@
-import os
-import io
-import sys
+import copy
 import glob
+import io
+import os
+import sys
 import shutil
 import subprocess
 import traceback
@@ -126,7 +127,7 @@ def parse(input_str):
                 i = -1
             case command if command.startswith("$(") and command.endswith(")"):
                 try:
-                    proc = subprocess.run([sys.executable, "-m", "pyshell", "-c", command[2:-1]], capture_output=True, text=True)
+                    proc = subprocess.run([sys.executable, "-P", "-m", "pyshell", "-c", command[2:-1]], capture_output=True, text=True)
                     if proc.returncode != 0:
                         raise Exception()
 
@@ -169,16 +170,25 @@ def run_pipeline(pipeline):
     return status
 
 
+def resolve_alias(command: Command):
+    aliases = copy.deepcopy(pyshenv.aliases)
+    while cmd := aliases.pop(command.command, None):
+        parts = shlex.split(cmd, posix=False)
+        command.command = parts[0]
+        command.args = parts[1:] + command.args
+    return command
+
+
 def run(command: Command):
     try:
         status = 0
         proc = None
 
+        command = resolve_alias(command)
+
         match command.command:
             case "":
                 return
-            case "help":
-                parser.print_help()
             case "import":
                 try:
                     exec("import " + " ".join(command.args), pyshenv.namespace, pyshenv.namespace)
@@ -186,10 +196,6 @@ def run(command: Command):
                     suggestion = traceback.format_exception(e)[-1].strip()
                     print(f"{color.red}{suggestion}{color.reset}")
                     status = 1
-            case _ if command.command in pyshenv.aliases:
-                cmd = pyshenv.aliases.pop(command.command)
-                status = run_pipeline(parse(" ".join([*shlex.split(cmd, posix=False), *command.args])))
-                pyshenv.aliases[command] = cmd
             case _ if command.command in commands.__all__:
                 status = getattr(commands, command.command)(pyshenv, *command.args) or 0
             case _ if exe := shutil.which(command.command):

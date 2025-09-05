@@ -5,7 +5,11 @@ import os
 def _cd(pyshenv, *args):
     parser = argparse.ArgumentParser(prog="cd", description="Change the shell working directory.")
     parser.add_argument("path", nargs="*", help="the path to change to")
-    args = parser.parse_args(args)
+
+    try:
+        args = parser.parse_args(args)
+    except SystemExit:
+        return 1
 
     path = " ".join(args.path)
     if not path:

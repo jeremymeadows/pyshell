@@ -11,6 +11,8 @@ import subprocess
 import sys
 import traceback
 
+import pyshell
+
 from pyshell import pyshenv, runner, complete
 from pyshell.commands import source
 from pyshell.utils.termcolors import fg as color
@@ -20,12 +22,12 @@ def main():
     parser = argparse.ArgumentParser(
         prog="pysh",
         description="A simple Python-based shell",
-        epilog="Still in development",
+        epilog=f"PyShell {pyshell.__version__}",
         add_help=True,
     )
 
     # parser.add_argument("-h", "--help", action="store_true", help="show this help message and exit")
-    parser.add_argument("-v", "--version", action="version", version="%(prog)s 0.0.1")
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {pyshell.__version__}")
     parser.add_argument("-p", "--pure", action="store_true", help="run the shell without inheriting the environment variables")
     parser.add_argument("-i", "--interactive", action="store_true", help="run the shell in interactive mode even if stdin is not a terminal")
     parser.add_argument("-r", "--repl", action="store_true", help="enter the repl after running a command or script file")
@@ -35,6 +37,7 @@ def main():
     parser.add_argument("file", type=str, nargs="*", help="run a PyShell script file and exit")
 
     args = parser.parse_args()
+    pyshenv.help = parser.format_help()
 
     if args.pure:
         env = { k: v for k, v in os.environ.items() if k in ("USER", "HOME", "TERM", "PATH", "EDITOR", "PAGER", "SHLVL", "DISPLAY") or k.startswith("PYTHON") }

@@ -1,16 +1,17 @@
 import os, socket, sys
 
-from pyshell.utils.termcolors import fg as color
+__version__ = "0.1.0"
 
 
 def prompt():
-    return f"{color.green}{{cwd}}{color.white}\n> "
+    return f"{{user}} {{cwd}} > "
 
 class PyShellEnv:
     def __init__(self):
         self.namespace = { "prompt": prompt }
         self.interactive = sys.stdin.isatty()
         self.repl = True
+        self.help = ""
         self.aliases = dict()
         self.prompt_subs = {
             "user": os.getlogin(),
