@@ -27,10 +27,49 @@ class Command:
                 f"\tout: {self.out.name if self.out != -1 else "PIPE"}",
             ">"])
 
+def tokenize(input_str):
+    toks = []
+    current = ""
+    end = ""
+
+    i = 0
+    while i < len(input_str):
+        match input_str[i]:
+            case c if end and c == end:
+                current += c
+                end = ""
+            case c if end:
+                current += c
+            case '"' | "'":
+                current += c
+                end = c
+            case "$" if input_str[i:i + 2] == "$(":
+                current += c
+                end = ")"
+            case "|", "<", ">":
+                if current:
+                    toks += [current]
+                    current = ""
+                
+                if input_str[i:i + 2] == ">>":
+                    toks += [">>"]
+                    i += 1 
+                else:
+                    toks += [c]
+            case c if c.isspace():
+                if current:
+                    toks += [current]
+                    current = ""
+            case _:
+                current += c
+        i += 1
+
+    toks += [current]
+    return toks
 
 def parse(input_str):
     orig = input_str
-    toks = shlex.split(input_str, posix=False)
+    toks = tokenize(input_str)
     pipeline = []
 
     i = 0
@@ -85,23 +124,23 @@ def parse(input_str):
                 pipeline += [Command(command, args, input_str, ins=r, out=w, err=e)]
                 toks = toks[end + 1:]
                 i = -1
-            case t if t.startswith("$(") and t.endswith(")"):
+            case command if command.startswith("$(") and command.endswith(")"):
                 try:
-                    capture = io.StringIO()
-                    command = parse(t[2:-1])
-                    command.out = capture
-                    run(command)
-                    capture.seek(0)
-                    toks[i] = capture.read().strip()
+                    proc = subprocess.run([sys.executable, "-m", "pyshell", "-c", command[2:-1]], capture_output=True, text=True)
+                    if proc.returncode != 0:
+                        raise Exception()
+
+                    toks[i] = proc.stdout.strip()
                     i -= 1
                 except Exception as e:
                     print(f"{color.red}Command substitution failed: {e}{color.reset}")
-            case t if t[0] in ('"', "'") and t[0] == t[-1]:
-                input_str += t + " "
-                toks[i] = t[1:-1]
-            case t if "*" in t or "?" in t:
-                input_str += t + " "
-                toks[i:i+1] = glob.glob(os.path.expanduser(os.path.expandvars(t)))
+                    print(f"{color.red}{proc.stderr}{color.reset}")
+            case string if string and string[0] in ('"', "'") and string[0] == string[-1]:
+                input_str += string + " "
+                toks[i] = string[1:-1]
+            case g if "*" in g or "?" in g:
+                input_str += g + " "
+                toks[i:i + 1] = glob.glob(os.path.expanduser(os.path.expandvars(g)))
             case t:
                 input_str += t + " "
                 toks[i] = os.path.expanduser(os.path.expandvars(t))
