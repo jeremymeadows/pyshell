@@ -22,5 +22,9 @@ def _alias(pyshenv, *args):
         if "=" not in args:
             print("alias: invalid alias definition. Use the form name='value'")
             return
-        alias, command = args.split("=", 1)
-        pyshenv.aliases[alias.strip()] = command.strip().strip('"').strip("'")
+
+        alias, command = map(str.strip, args.split("=", 1))
+        if any(c.isspace() for c in alias):
+            print("alias: alias name cannot contain spaces")
+            return
+        pyshenv.aliases[alias] = command.strip('"').strip("'")

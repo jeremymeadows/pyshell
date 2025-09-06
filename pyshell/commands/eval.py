@@ -11,5 +11,4 @@ def _eval(pyshenv, *args):
     except SystemExit:
         return
 
-    input_str = " ".join(args).strip()
-    runner.run_pipeline(runner.parse(input_str))
+    runner.run(" ".join(args))

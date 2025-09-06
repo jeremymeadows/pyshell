@@ -16,24 +16,38 @@ from pyshell.utils.termcolors import fg as color
 log = logger.logger(__name__)
 
 
-class Command:
-    def __init__(self, command, args, input_str, *, ins=sys.stdin, out=sys.stdout, err=sys.stderr):
-        self.command = command
-        self.args = args
-        self.input_str = input_str
-        self.ins = ins
-        self.out = out
-        self.err = err
-    
-    def __repr__(self):
-        return "\n".join([f"Command<{self.command} [{" ".join(self.args)}]",
-                f"\tstr: {self.input_str}",
-                f"\tin: {self.ins.name}",
-                f"\tout: {self.out.name if self.out != -1 else "PIPE"}",
-            ">"])
+def run(input_str: str, capture_output=False):
+    log.debug(f"input string: {input_str}")
+    if "\n" in input_str:
+        tokens = ""
+        log.debug("newline detected, treating as python statement")
+        pipeline = [(["^"], input_str, sys.stdin, sys.stdout, sys.stderr)]
+    else:
+        tokens = tokenize(input_str)
+        log.debug(f"parsed tokens: {tokens}")
+        pipeline = parse(tokens)
+    log.debug(f"parsed pipeline: {pipeline}")
+
+    status = 0
+
+    for i, (command, command_str, stdin, stdout, stderr) in enumerate(pipeline):
+        if i > 0 and stdin == sys.stdin:
+            stdin = process.stdout
+        if i + 1 < len(pipeline) and stdout == sys.stdout:
+            stdout = subprocess.PIPE
+        if capture_output and i + 1 == len(pipeline):
+            stdout = subprocess.PIPE
+
+        status, process = execute(command, command_str, stdin, stdout, stderr)
+        if status != 0:
+            break
+
+    if capture_output:
+        output = (process.stdout if status == 0 else process.stderr).read().decode()
+    return status if not capture_output else (status, output)
 
 
-def tokenize(input_str):
+def tokenize(input_str: str):
     toks = []
     current = ""
     end = ""
@@ -75,29 +89,31 @@ def tokenize(input_str):
     return toks
 
 
-def parse(input_str):
-    if "\n" in input_str:
-        return [Command("^", [], input_str)]
-
-    toks = tokenize(input_str)
+def parse(toks: list[str]):
     pipeline = []
 
     i = 0
     while i < len(toks):
         if i == 0:
-            input_str = ""
+            command_str = ""
             r, w, e = sys.stdin, sys.stdout, sys.stderr
+
+            if toks[0] in pyshenv.aliases:
+                aliases = copy.deepcopy(pyshenv.aliases)
+                while cmd := aliases.pop(toks[0], None):
+                    log.debug(f"resolving alias: {toks[0]} -> {cmd}")
+                    toks[:1] = tokenize(cmd)
 
         match toks[i]:
             case t if t.startswith("#"):
                 break
             case "|":
-                command, args = toks[0], toks[1:i]
-                pipeline += [Command(command, args, input_str, ins=r, out=w, err=e)]
+                command = toks[:i]
+                pipeline += [(command, command_str, r, w, e)]
                 toks = toks[i + 1:]
                 i = -1
             case ">" | ">>":
-                command, args = toks[0], toks[1:i]
+                command = toks[:i]
 
                 end = toks.index("|") if "|" in toks[i:] else len(toks)
                 if "<" in toks[i:end]:
@@ -110,11 +126,11 @@ def parse(input_str):
                     file = " ".join(toks[i + 1:end])
                     w = open(os.path.expanduser(os.path.expandvars(file)), "w" if t == ">" else "a")
 
-                pipeline += [Command(command, args, input_str, ins=r, out=w, err=e)]
+                pipeline += [(command, command_str, r, w, e)]
                 toks = toks[end + 1:]
                 i = -1
             case "<":
-                command, args = toks[0], toks[1:i]
+                command = toks[:i]
 
                 end = toks.index("|") if "|" in toks[i:] else len(toks)
                 if ">" in toks[i:end] or ">>" in toks[i:end]:
@@ -127,78 +143,117 @@ def parse(input_str):
                     file = " ".join(toks[i + 1:end])
                     r = open(os.path.expanduser(os.path.expandvars(file)), "r")
 
-                pipeline += [Command(command, args, input_str, ins=r, out=w, err=e)]
+                pipeline += [(command, command_str, r, w, e)]
                 toks = toks[end + 1:]
                 i = -1
             case command if command.startswith("$(") and command.endswith(")"):
                 try:
-                    proc = subprocess.run([sys.executable, "-P", "-m", "pyshell", "-c", command[2:-1]], capture_output=True, text=True)
-                    if proc.returncode != 0:
+                    status, output = run(command[2:-1], capture_output=True)
+                    if status != 0:
                         raise Exception()
 
-                    toks[i] = proc.stdout.strip()
-                    input_str += toks[i] + " "
+                    toks[i] = output.strip()
+                    command_str += toks[i] + " "
                     i -= 1
                 except Exception as e:
+                    log.error("command substitution failed")
+                    log.exception(e)
                     print(f"{color.red}Command substitution failed: {e}{color.reset}")
-                    print(f"{color.red}{proc.stderr}{color.reset}")
+                    print(f"{color.red}{output}{color.reset}")
             case string if string and string[0] in ('"', "'") and string[0] == string[-1]:
-                input_str += string + " "
+                command_str += string + " "
                 toks[i] = string[1:-1]
             case g if "*" in g or "?" in g:
-                input_str += g + " "
+                command_str += g + " "
                 expanded = glob.glob(os.path.expanduser(os.path.expandvars(g)))
                 toks[i:i + 1] = expanded
                 i += len(expanded) - 1
             case t:
-                input_str += t + " "
+                command_str += t + " "
                 toks[i] = os.path.expanduser(os.path.expandvars(t))
         i += 1
     else:
         if toks:
-            command, args = toks[0], toks[1:i]
-            pipeline += [Command(command, args, input_str)]
+            command = toks[:i]
+            pipeline += [(command, command_str, sys.stdin, sys.stdout, sys.stderr)]
 
     return pipeline
 
 
-def run_pipeline(pipeline):
-    status = 0
-    for i, command in enumerate(pipeline):
-        if i > 0 and command.ins == sys.stdin:
-            command.ins = process.stdout
-        if i + 1 < len(pipeline) and command.out == sys.stdout:
-            command.out = subprocess.PIPE
+def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
+    try:
+        status = 0
+        proc = None
 
-        status, process = run(command)
-        if status != 0:
-            return status
-    return status
+        match command[0]:
+            case "":
+                return
+            case "import":
+                try:
+                    exec("import " + " ".join(command[1:]), pyshenv.namespace, pyshenv.namespace)
+                except ModuleNotFoundError as e:
+                    suggestion = traceback.format_exception(e)[-1].strip()
+                    print(f"{color.red}{suggestion}{color.reset}")
+                    status = 1
+            case _ if command[0] in commands.__all__:
+                log.debug(f"running built-in `{command[0]}` with args {command[1:]}")
+                status = getattr(commands, command[0])(pyshenv, *command[1:]) or 0
+            case _ if exe := shutil.which(command[0]):
+                log.debug(f"spawning process {command[0]} ({exe})")
+                status, proc = spawn_process(exe, command, stdin, stdout, stderr)
+                log.debug(f"{command[0]} exited with status={status}")
+            case _:
+                log.debug(f"running as python code\n{command_str}")
+                expression = True
+                try:
+                    log.debug(f"compiling as expression")
+                    code = compile(command_str, "<string>", "eval")
+                except SyntaxError:
+                    expression = False
+                    log.debug("failed")
+                    try:
+                        log.debug(f"compiling code as statement")
+                        code = compile(command_str, "<string>", "exec")
+                    except SyntaxError as e:
+                        log.error(f"failed")
+                        log.exception(e)
+                        code = None
+                        status = 1
+
+                if code:
+                    try:
+                        func = eval if expression else exec
+                        log.debug(f"running as {'eval' if expression else 'exec'}\n{command_str}")
+                        if (res := func(command_str, pyshenv.namespace, pyshenv.namespace)) is not None:
+                            print(res) 
+                        log.debug(f"ok{f"\n{res}" if expression else ""}")
+                        status = 0
+                    except Exception as e:
+                        log.error(f"error during {'eval' if expression else 'exec'}")
+                        log.exception(e)
+                        suggestion = traceback.format_exception(e)[-1].strip()
+                        print(f"{color.red}{suggestion}{color.reset}")
+                        status = 1
+    except KeyboardInterrupt:
+        print()
+    
+    return (status, proc)
 
 
-def resolve_alias(command: Command):
-    aliases = copy.deepcopy(pyshenv.aliases)
-    while cmd := aliases.pop(command.command, None):
-        log.debug(f"resolving alias: {command.command} -> {cmd}")
-        parts = shlex.split(cmd, posix=False)
-        command.command = parts[0]
-        command.args = parts[1:] + command.args
-    return command
-
-
-def spawn_process(command, exe):
+def spawn_process(exe, command, stdin, stdout, stderr):
     old_pgrp = os.tcgetpgrp(sys.stdin.fileno())
     old_attr = termios.tcgetattr(sys.stdin.fileno())
 
     try:
         proc = subprocess.Popen(
-            [command.command, *command.args],
+            command,
             executable=exe,
             preexec_fn=lambda: os.setpgid(os.getpid(), os.getpid()),
             cwd=os.getcwd(),
             env=os.environ.copy(),
-            stdin=command.ins,
-            stdout=command.out,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
         )
 
         # set the child's process group as new foreground
@@ -219,65 +274,3 @@ def spawn_process(command, exe):
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_attr)
 
     return status, proc
-
-
-def run(command: Command):
-    try:
-        status = 0
-        proc = None
-
-        command = resolve_alias(command)
-
-        match command.command:
-            case "":
-                return
-            case "import":
-                try:
-                    exec("import " + " ".join(command.args), pyshenv.namespace, pyshenv.namespace)
-                except ModuleNotFoundError as e:
-                    suggestion = traceback.format_exception(e)[-1].strip()
-                    print(f"{color.red}{suggestion}{color.reset}")
-                    status = 1
-            case _ if command.command in commands.__all__:
-                log.debug(f"running built-in `{command.command}` with args {command.args}")
-                status = getattr(commands, command.command)(pyshenv, *command.args) or 0
-            case _ if exe := shutil.which(command.command):
-                log.debug(f"spawning process {command.command} ({exe})")
-                status, proc = spawn_process(command, exe)
-                log.debug(f"{command.command} exited with status={status}")
-            case _:
-                expression = True
-                log.debug(f"running as python code\n{command.input_str}")
-                try:
-                    log.debug(f"compiling as expression")
-                    code = compile(command.input_str, "<string>", "eval")
-                except SyntaxError:
-                    expression = False
-                    log.debug("failed")
-                    try:
-                        log.debug(f"compiling code as statement")
-                        code = compile(command.input_str, "<string>", "exec")
-                    except SyntaxError as e:
-                        log.error(f"failed")
-                        log.exception(e)
-                        code = None
-                        status = 1
-
-                if code:
-                    try:
-                        func = eval if expression else exec
-                        log.debug(f"running as {'eval' if expression else 'exec'}\n{command.input_str}")
-                        if (res := func(command.input_str, pyshenv.namespace, pyshenv.namespace)) is not None:
-                            print(res) 
-                        log.debug(f"ok{f"\n{res}" if expression else ""}")
-                        status = 0
-                    except Exception as e:
-                        log.error(f"error during {'eval' if expression else 'exec'}")
-                        log.exception(e)
-                        suggestion = traceback.format_exception(e)[-1].strip()
-                        print(f"{color.red}{suggestion}{color.reset}")
-                        status = 1
-    except KeyboardInterrupt:
-        print()
-    
-    return (status, proc)

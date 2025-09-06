@@ -87,7 +87,8 @@ def main():
         open(os.environ.get("HISTORY"), "wb").close()
 
     if args.command:
-        runner.run_pipeline(runner.parse(" ".join(args.command)))
+        log.debug(f"running command from args: {args.command}")
+        runner.run(" ".join(args.command))
 
     if args.repl:
         pyshenv.repl = True
@@ -122,8 +123,7 @@ def main():
             if not input_str:
                 continue
 
-            pipeline = runner.parse(input_str)
-            status = runner.run_pipeline(pipeline)
+            status = runner.run(input_str)
             os.environ["LAST_EXIT_CODE"] = str(status)
             if status != 0:
                 print("command failed: status code", status)
@@ -131,4 +131,9 @@ def main():
 
 if __name__ == "__main__":
     log.debug(f"Starting PyShellv{pyshell.__version__}")
-    main()
+    try:
+        main()
+    except Exception as e:
+        log.critical("uncaught exception")
+        log.exception(e)
+        sys.exit(1)
