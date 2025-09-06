@@ -6,6 +6,7 @@ import re
 import readline
 import shlex
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -13,9 +14,11 @@ import traceback
 
 import pyshell
 
-from pyshell import pyshenv, runner, complete
+from pyshell import pyshenv, runner, complete, logger
 from pyshell.commands import source
 from pyshell.utils.termcolors import fg as color
+
+log = logger.logger(__name__)
 
 
 def main():
@@ -93,6 +96,8 @@ def main():
         prompt = pyshenv.namespace["prompt"]
         complete.enable()
 
+        signal.signal(signal.SIGTSTP, lambda *_: log.debug('ignore sigtstp'))
+
         while True:
             prompt_str = prompt().format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })
 
@@ -100,13 +105,16 @@ def main():
                 input_str = input(prompt_str if pyshenv.interactive else "")
                 readline.write_history_file(os.environ.get("HISTORY"))
             except KeyboardInterrupt:
+                log.debug("sigint on repl")
                 print(f"{color.red}^C{color.reset}")
                 continue
             except EOFError:
+                log.debug("exit on eof")
                 if pyshenv.interactive:
                     print(f"{color.red}^D{color.reset}")
                 elif pyshenv.repl:
                     sys.stdin = open("/dev/tty")
+                    log.debug("switch to interactive mode")
                     pyshenv.interactive = True
                     continue
                 sys.exit(0)
@@ -122,4 +130,5 @@ def main():
 
 
 if __name__ == "__main__":
+    log.debug(f"Starting PyShellv{pyshell.__version__}")
     main()

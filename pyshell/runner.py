@@ -2,14 +2,18 @@ import copy
 import glob
 import io
 import os
-import sys
-import shutil
-import subprocess
-import traceback
 import shlex
+import shutil
+import signal
+import sys
+import subprocess
+import termios
+import traceback
 
-from pyshell import pyshenv, commands
+from pyshell import pyshenv, commands, logger
 from pyshell.utils.termcolors import fg as color
+
+log = logger.logger(__name__)
 
 
 class Command:
@@ -27,6 +31,7 @@ class Command:
                 f"\tin: {self.ins.name}",
                 f"\tout: {self.out.name if self.out != -1 else "PIPE"}",
             ">"])
+
 
 def tokenize(input_str):
     toks = []
@@ -67,6 +72,7 @@ def tokenize(input_str):
 
     toks += [current]
     return toks
+
 
 def parse(input_str):
     orig = input_str
@@ -158,6 +164,7 @@ def parse(input_str):
 
 
 def run_pipeline(pipeline):
+    status = 0
     for i, command in enumerate(pipeline):
         if i > 0 and command.ins == sys.stdin:
             command.ins = process.stdout
@@ -173,10 +180,46 @@ def run_pipeline(pipeline):
 def resolve_alias(command: Command):
     aliases = copy.deepcopy(pyshenv.aliases)
     while cmd := aliases.pop(command.command, None):
+        log.debug(f"resolving alias: {command.command} -> {cmd}")
         parts = shlex.split(cmd, posix=False)
         command.command = parts[0]
         command.args = parts[1:] + command.args
     return command
+
+
+def spawn_process(command, exe):
+    old_pgrp = os.tcgetpgrp(sys.stdin.fileno())
+    old_attr = termios.tcgetattr(sys.stdin.fileno())
+
+    try:
+        proc = subprocess.Popen(
+            [command.command, *command.args],
+            executable=exe,
+            preexec_fn=lambda: os.setpgid(os.getpid(), os.getpid()),
+            cwd=os.getcwd(),
+            env=os.environ.copy(),
+            stdin=command.ins,
+            stdout=command.out,
+        )
+
+        # set the child's process group as new foreground
+        os.tcsetpgrp(sys.stdin.fileno(), proc.pid)
+        # revive the child in case it was stopped before it was made foreground
+        os.kill(proc.pid, signal.SIGCONT)
+
+        status = proc.wait()
+
+    finally:
+        # ignore signals from changing tty
+        old_hdlr = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+        # make parent group foreground again
+        os.tcsetpgrp(sys.stdin.fileno(), old_pgrp)
+        # restore the handler
+        signal.signal(signal.SIGTTOU, old_hdlr)
+        # restore terminal attributes
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_attr)
+
+    return status, proc
 
 
 def run(command: Command):
@@ -197,36 +240,44 @@ def run(command: Command):
                     print(f"{color.red}{suggestion}{color.reset}")
                     status = 1
             case _ if command.command in commands.__all__:
+                log.debug(f"running built-in `{command.command}` with args {command.args}")
                 status = getattr(commands, command.command)(pyshenv, *command.args) or 0
             case _ if exe := shutil.which(command.command):
-                proc = subprocess.Popen(
-                    [exe, *command.args],
-                    cwd=os.getcwd(),
-                    env=os.environ.copy(),
-                    stdin=command.ins,
-                    stdout=command.out,
-                )
-                status = proc.wait()
+                log.debug(f"spawning process {command.command} ({exe})")
+                status, proc = spawn_process(command, exe)
+                log.debug(f"{command.command} exited with status={status}")
             case _:
                 expression = True
+                log.debug(f"running as python code\n{command.input_str}")
                 try:
+                    log.debug(f"compiling as expression")
                     code = compile(command.input_str, "<string>", "eval")
                 except SyntaxError:
                     expression = False
+                    log.debug("failed")
                     try:
+                        log.debug(f"compiling code as statement")
                         code = compile(command.input_str, "<string>", "exec")
                     except SyntaxError as e:
-                        pass
+                        log.error(f"failed")
+                        log.exception(e)
+                        code = None
+                        status = 1
 
-                try:
-                    func = eval if expression else exec
-                    if (res := func(command.input_str, pyshenv.namespace, pyshenv.namespace)) is not None:
-                        print(res) 
-                    status = 0
-                except Exception as e:
-                    suggestion = traceback.format_exception(e)[-1].strip()
-                    print(f"{color.red}{suggestion}{color.reset}")
-                    status = 1
+                if code:
+                    try:
+                        func = eval if expression else exec
+                        log.debug(f"running as {'eval' if expression else 'exec'}\n{command.input_str}")
+                        if (res := func(command.input_str, pyshenv.namespace, pyshenv.namespace)) is not None:
+                            print(res) 
+                        log.debug(f"ok{f"\n{res}" if expression else ""}")
+                        status = 0
+                    except Exception as e:
+                        log.error(f"error during {'eval' if expression else 'exec'}")
+                        log.exception(e)
+                        suggestion = traceback.format_exception(e)[-1].strip()
+                        print(f"{color.red}{suggestion}{color.reset}")
+                        status = 1
     except KeyboardInterrupt:
         print()
     

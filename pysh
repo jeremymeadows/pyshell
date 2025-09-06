@@ -6,5 +6,5 @@ else
     dir=$(dirname $0)
 fi
 
-export PYTHONPATH="$dir:$PYTHONPATH"
+export PYTHONPATH="$dir"
 exec python -P -m pyshell $@
