@@ -50,8 +50,9 @@ def tokenize(input_str):
                 current += c
                 end = c
             case "$" if input_str[i:i + 2] == "$(":
-                current += c
+                current += "$("
                 end = ")"
+                i += 1
             case "|", "<", ">":
                 if current:
                     toks += [current]
@@ -75,7 +76,9 @@ def tokenize(input_str):
 
 
 def parse(input_str):
-    orig = input_str
+    if "\n" in input_str:
+        return [Command("^", [], input_str)]
+
     toks = tokenize(input_str)
     pipeline = []
 
@@ -90,14 +93,11 @@ def parse(input_str):
                 break
             case "|":
                 command, args = toks[0], toks[1:i]
-                input_str = " ".join(toks[:i])
-
                 pipeline += [Command(command, args, input_str, ins=r, out=w, err=e)]
                 toks = toks[i + 1:]
                 i = -1
             case ">" | ">>":
                 command, args = toks[0], toks[1:i]
-                input_str = " ".join(toks[:i])
 
                 end = toks.index("|") if "|" in toks[i:] else len(toks)
                 if "<" in toks[i:end]:
@@ -115,7 +115,6 @@ def parse(input_str):
                 i = -1
             case "<":
                 command, args = toks[0], toks[1:i]
-                input_str = " ".join(toks[:i])
 
                 end = toks.index("|") if "|" in toks[i:] else len(toks)
                 if ">" in toks[i:end] or ">>" in toks[i:end]:
@@ -138,6 +137,7 @@ def parse(input_str):
                         raise Exception()
 
                     toks[i] = proc.stdout.strip()
+                    input_str += toks[i] + " "
                     i -= 1
                 except Exception as e:
                     print(f"{color.red}Command substitution failed: {e}{color.reset}")
@@ -147,7 +147,9 @@ def parse(input_str):
                 toks[i] = string[1:-1]
             case g if "*" in g or "?" in g:
                 input_str += g + " "
-                toks[i:i + 1] = glob.glob(os.path.expanduser(os.path.expandvars(g)))
+                expanded = glob.glob(os.path.expanduser(os.path.expandvars(g)))
+                toks[i:i + 1] = expanded
+                i += len(expanded) - 1
             case t:
                 input_str += t + " "
                 toks[i] = os.path.expanduser(os.path.expandvars(t))
@@ -156,9 +158,6 @@ def parse(input_str):
         if toks:
             command, args = toks[0], toks[1:i]
             pipeline += [Command(command, args, input_str)]
-
-    if "\n" in orig:
-        pipeline[-1].input_str = orig
 
     return pipeline
 
