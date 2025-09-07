@@ -163,11 +163,17 @@ def parse(toks: list[str]):
                     print(f"{color.red}{output}{color.reset}")
             case string if string and string[0] in ('"', "'") and string[0] == string[-1]:
                 command_str += string + " "
-                toks[i] = string[1:-1]
+                if toks[0] != "alias":
+                    if string[0] == '"':
+                        expanded = glob.glob(os.path.expanduser(os.path.expandvars(string[1:-1])))
+                        toks[i:i+1] = expanded
+                    else:
+                        toks[i] = string[1:-1]
             case g if "*" in g or "?" in g:
                 command_str += g + " "
-                expanded = glob.glob(os.path.expanduser(os.path.expandvars(g)))
-                toks[i:i + 1] = expanded
+                if toks[0] != "alias":
+                    expanded = glob.glob(os.path.expanduser(os.path.expandvars(g)))
+                    toks[i:i + 1] = expanded
                 i += len(expanded) - 1
             case t:
                 command_str += t + " "
