@@ -5,7 +5,7 @@ import shlex
 import shutil
 
 
-def _exec(pyshenv, *args):
+def _exec(*args):
     parser = argparse.ArgumentParser(prog="exec", description="Replace the shell with the given command.")
     parser.add_argument("command", help="the command to execute with its arguments")
     parser.add_argument("args", nargs="*", help="arguments for the command")

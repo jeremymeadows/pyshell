@@ -1,11 +1,11 @@
 import argparse
 
-from pyshell import logger
+from pyshell import pyshenv, logger
 
 log = logger.logger(__name__)
 
 
-def _jobs(pyshenv, *args):
+def _jobs(*args):
     parser = argparse.ArgumentParser(prog="jobs", description="Display status of background jobs.")
     parser.add_argument("id", nargs="*", help="specifies the job IDs to list (default: all jobs)")
     parser.add_argument("-l", "--long", action="store_true", help="lists process IDs in addition to the normal information")

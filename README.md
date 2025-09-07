@@ -48,7 +48,7 @@ python in the shell
 226.1946710584651
 ```
 
-### Input/Output redirection
+### File input/output redirection
 ```sh
 > echo foo > out.txt
 > print("bar") >> out.txt
@@ -86,7 +86,7 @@ hello jeremy
 > ls ~ | grep foo
 ```
 
-### Job Control
+### Job control
 ```sh
 > vlc video.mp4
 ^Z
@@ -102,18 +102,18 @@ hello jeremy
 
 ## Scripting
 
-PyShell files can interpret any valid Python code or shell commands.
-They can also create custom shell commands from a Python function which can be loaded into the current enviroment using the `source` command.
+PyShell can interpret any valid Python code or shell commands.
+It also supports creating custom shell commands from a Python function which can be loaded into the current enviroment using the `source` command.
 By default, `~/.pyshrc` is sourced when the shell starts, and that file can be used to customize/configure PyShell.
 
-### Create Shell Commands
+### Create shell commands
 Add the `command` decorator to a function to give it a name and allow it to be called as a shell command.
 
 ```python
 from pyshell.commands import command
 
 @command("myfunc")
-def _myfunc(_, *args):
+def _myfunc(*args):
     print("I was passed", args)
 ```
 ```sh
@@ -129,7 +129,7 @@ Strings and string lists are both valid.
 from pyshell.commands import command
 
 @command("rcow")
-def _rainbowcow_command(_, *args):
+def _rainbowcow_command(*args):
     """A command that prints a rainbow cow talking"""
     if not args:
         $("cowsay Moo | lolcat")
@@ -137,7 +137,7 @@ def _rainbowcow_command(_, *args):
         $(["cowsay", *args, "| lolcat"])
 ```
 
-### Custom Tab Completions
+### Custom tab completions
 A dictionary can be registered with the completer which has a prefix as the key.
 If the current text matches the prefix then the value array will be presented as suggestions for the next argument.
 

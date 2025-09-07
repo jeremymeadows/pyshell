@@ -2,12 +2,12 @@ import argparse
 import os
 import signal
 
-from pyshell import logger
+from pyshell import pyshenv, logger
 
 log = logger.logger(__name__)
 
 
-def _disown(pyshenv, *args):
+def _disown(*args):
     parser = argparse.ArgumentParser(prog="disown", description="Remove jobs from the current shell.")
     parser.add_argument("id", nargs="*", help="specifies the job IDs to disown (default: highest id)")
     parser.add_argument("-a", "--all", action="store_true", help="disown all jobs")
@@ -37,4 +37,3 @@ def _disown(pyshenv, *args):
         else:
             del pyshenv.jobs[job_id]
             log.debug(f"[{job_id}] disowned")
-

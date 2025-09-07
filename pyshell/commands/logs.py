@@ -5,7 +5,7 @@ import os
 from pyshell.logger import logfile
 
 
-def _logs(pyshenv, *args):
+def _logs(*args):
     parser = argparse.ArgumentParser( prog="logs", description="Follow the PyShell log file")
 
     try:

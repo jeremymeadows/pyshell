@@ -2,8 +2,10 @@ import argparse
 import re
 import shlex
 
+from pyshell import pyshenv
 
-def _alias(pyshenv, *args):
+
+def _alias(*args):
     parser = argparse.ArgumentParser(prog="alias", description="Create or display command aliases.")
     # parser.register('type', 'alias', lambda s: re.match(".* ?= ?[\"'].*[\"']"))
     parser.register('type', 'alias', lambda s: s==s)

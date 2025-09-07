@@ -4,12 +4,12 @@ import signal
 import sys
 import termios
 
-from pyshell import logger
+from pyshell import pyshenv, logger
 
 log = logger.logger(__name__)
 
 
-def _fg(pyshenv, *args):
+def _fg(*args):
     parser = argparse.ArgumentParser(prog="fg", description="Move a job to the foreground.")
     parser.add_argument("id", type=int, nargs="?", help="specifies the job IDs to move (default: highest id)")
 

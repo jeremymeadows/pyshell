@@ -14,8 +14,7 @@ import traceback
 
 import pyshell
 
-from pyshell import pyshenv, runner, complete, logger
-from pyshell.commands import source
+from pyshell import pyshenv, commands, runner, complete, logger
 from pyshell.utils.termcolors import fg as color
 
 log = logger.logger(__name__)
@@ -72,7 +71,7 @@ def main():
 
     for file in [config, *args.file]:
         if os.path.isfile(file):
-            source(pyshenv, file)
+            commands.source(file)
         elif file == config and not os.environ.get("CONFIG_WARN", ""):
             os.environ["CONFIG_WARN"] = "1"
             print(f"{color.yellow}Config file ({config}) was not found{color.reset}")

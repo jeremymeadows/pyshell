@@ -2,10 +2,10 @@ import argparse
 import shutil
 import sys
 
-from pyshell import commands, pyshenv
+from pyshell import pyshenv, commands
 
 
-def _which(pyshenv, *args):
+def _which(*args):
     parser = argparse.ArgumentParser(prog="which", description="Print the full path of commands found in the system PATH.")
     parser.add_argument("commands", nargs="+", help="the command to find")
 

@@ -1,5 +1,5 @@
 from pyshell import pyshenv
 
 
-def _help(pyshenv, *args):
+def _help(*args):
     print(pyshenv.help)

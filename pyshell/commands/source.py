@@ -5,7 +5,7 @@ from pyshell import runner, logger
 log = logger.logger(__name__)
 
 
-def _source(pyshenv, *args):
+def _source(*args):
     parser = argparse.ArgumentParser(prog="source", description="Execute commands from a file in the current shell environment.")
     parser.add_argument("files", nargs="+", help="the files to source")
 

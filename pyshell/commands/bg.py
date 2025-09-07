@@ -1,12 +1,12 @@
 import argparse
 import signal
 
-from pyshell import logger
+from pyshell import pyshenv, logger
 
 log = logger.logger(__name__)
 
 
-def _bg(pyshenv, *args):
+def _bg(*args):
     parser = argparse.ArgumentParser(prog="bg", description="Move jobs to the background.")
     parser.add_argument("id", type=int, nargs="*", help="specifies the job IDs to move (default: highest id)")
     parser.add_argument("-a", "--all", action="store_true", help="move all jobs to background")

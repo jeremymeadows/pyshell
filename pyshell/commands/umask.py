@@ -2,7 +2,7 @@ import argparse
 import os
 
 
-def _umask(pyshenv, *args):
+def _umask(*args):
     parser = argparse.ArgumentParser(prog="umask", description="Set or display the file mode creation mask.")
     parser.add_argument("-o", "--octal", action="store_true", help="display the umask in octal format")
     parser.add_argument("mode", type=str, nargs="?", help="the new file mode creation mask (in octal)")

@@ -198,7 +198,7 @@ def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys
                     status = 1
             case _ if command[0] in commands.__all__:
                 log.debug(f"running built-in `{command[0]}` with args {command[1:]}")
-                status = getattr(commands, command[0])(pyshenv, *command[1:]) or 0
+                status = getattr(commands, command[0])(*command[1:]) or 0
             case _ if exe := shutil.which(command[0]):
                 log.debug(f"spawning process {command[0]} ({exe})")
                 status, proc = spawn_process(exe, command, stdin, stdout, stderr)
@@ -257,6 +257,6 @@ def spawn_process(exe, command, stdin, stdout, stderr):
     )
 
     pyshenv.add_job(proc)
-    status = commands.fg(pyshenv)
+    status = commands.fg()
 
     return status, proc
