@@ -49,6 +49,12 @@ def _fg(*args):
             print()
         else:
             del pyshenv.jobs[job_id]
+    except ChildProcessError as e:
+        if "No child processes" in str(e):
+            log.warn(f"no child process {job.proc.pid}: probably already reaped")
+            status = 0
+        else:
+            raise e
     finally:
         # Restore the default SIGTSTP behavior
         signal.signal(signal.SIGTSTP, signal.SIG_DFL)
