@@ -15,5 +15,4 @@ def _exec(pyshenv, *args):
         return
     
     if path := shutil.which(args[0]):
-        os.environ["SHLVL"] = str(int(os.environ.get("SHLVL", 1)) - 1)
         os.execv(path, args)

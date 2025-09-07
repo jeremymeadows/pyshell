@@ -2,6 +2,7 @@ import copy
 import glob
 import io
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -16,8 +17,10 @@ from pyshell.utils.termcolors import fg as color
 log = logger.logger(__name__)
 
 
-def run(input_str: str, capture_output=False):
+def run(inpt: str | list[str], capture_output=False):
+    input_str = inpt if type(inpt) is str else " ".join(inpt)
     log.debug(f"input string: {input_str}")
+
     if "\n" in input_str:
         tokens = ""
         log.debug("newline detected, treating as python statement")
@@ -204,6 +207,9 @@ def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys
                 log.debug(f"{command[0]} exited with status={status}")
             case _:
                 log.debug(f"running as python code\n{command_str}")
+                command_str = os.path.expandvars(command_str)
+                command_str = re.sub(r"\$\((.*)\)", r"pyshell.runner.run(\1)", command_str)
+
                 expression = True
                 try:
                     log.debug(f"compiling as expression")

@@ -53,7 +53,6 @@ def main():
     os.environ["PWD"] = os.getcwd()
     os.environ["OLDPWD"] = os.getcwd()
     
-    os.environ["SHELL"] = "pysh"
     os.environ["SHLVL"] = str(int(os.environ.get("SHLVL", "0")) + 1)
 
     os.environ["HISTORY"] = os.path.join(os.path.expanduser("~"), ".pyshell_history")
@@ -94,13 +93,14 @@ def main():
         pyshenv.repl = True
 
     if pyshenv.repl:
-        prompt = pyshenv.namespace["prompt"]
+        prompt = pyshenv.namespace["prompt"]()
         complete.enable()
 
         signal.signal(signal.SIGTSTP, lambda *_: log.debug('ignore sigtstp'))
+        exec("import pyshell", pyshenv.namespace)
 
         while True:
-            prompt_str = prompt().format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })
+            prompt_str = prompt.format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })
 
             try:
                 input_str = input(prompt_str if pyshenv.interactive else "")
@@ -137,3 +137,6 @@ if __name__ == "__main__":
         log.critical("uncaught exception")
         log.exception(e)
         sys.exit(1)
+    finally:
+        os.environ["SHLVL"] = str(int(os.environ.get("SHLVL", 1)) - 1)
+        log.debug("exiting pysh")
