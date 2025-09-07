@@ -3,15 +3,15 @@
 ![](pie_shell.png)
 
 PyShell is a simple shell built on top of the Python interpreter.
-Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones (still in development):
+Any valid Python is also valid PyShell, and it aims to implement all the important shell features plus some extra useful ones:
 - [x] custom commands
 - [x] completion
 - [x] file input/output redirection
 - [x] command substitution
 - [x] pipelines
-- [ ] sharing variables between Python and shell commands
-- [ ] intersperce Python and shell in a function
-- [ ] background jobs / process management
+- [x] read shell variables from Python
+- [x] run shell commands from a Python function
+- [x] background jobs / process management
 
 ## Running PyShell
 
@@ -39,7 +39,7 @@ value
 python in the shell
 ```
 
-### Use Python modules in your shell
+### Use Python modules
 ```python
 > cd ~/directory
 > from math import pi
@@ -67,10 +67,37 @@ Desktop Downloads Documents Music Pictures Video
 LOREM IPSUM DOLOR SIT AMET
 ```
 
+### Variable expansion
+```sh
+> import os
+>
+> os.environ["NUMBER"] = "2"
+> pow($NUMBER, 7) - 1
+127
+>
+> os.environ["NAME"] = "jeremy"
+> print("hello $NAME")
+hello jeremy
+```
+
 ### Pipelines
 ```sh
 > cat file.txt | cowsay | lolcat
 > ls ~ | grep foo
+```
+
+### Job Control
+```sh
+> vlc video.mp4
+^Z
+> jobs
+[1]  stopped  vlc video.mp4
+> bg
+> jobs
+[1]  running  vlc video.mp4
+> disown
+> jobs
+> exit
 ```
 
 ## Scripting
@@ -94,6 +121,22 @@ def _myfunc(_, *args):
 I was passed ('1', '2', '3')
 ```
 
+### Command substitution
+Command substitution can also be used in scripts to run shell commands.
+Strings and string lists are both valid.
+
+```python
+from pyshell.commands import command
+
+@command("rcow")
+def _rainbowcow_command(_, *args):
+    """A command that prints a rainbow cow talking"""
+    if not args:
+        $("cowsay Moo | lolcat")
+    else:
+        $(["cowsay", *args, "| lolcat"])
+```
+
 ### Custom Tab Completions
 A dictionary can be registered with the completer which has a prefix as the key.
 If the current text matches the prefix then the value array will be presented as suggestions for the next argument.
@@ -106,7 +149,7 @@ entries = {
 }
 
 try:
-    # if the docker package is installed, add completions to the container's names
+    # if the docker package is installed, add completions to the container names
     import docker
     
     client = docker.from_env()

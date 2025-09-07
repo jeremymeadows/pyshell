@@ -5,10 +5,8 @@ import os
 import re
 import shlex
 import shutil
-import signal
 import sys
 import subprocess
-import termios
 import traceback
 
 from pyshell import pyshenv, commands, logger
@@ -247,36 +245,18 @@ def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys
 
 
 def spawn_process(exe, command, stdin, stdout, stderr):
-    old_pgrp = os.tcgetpgrp(sys.stdin.fileno())
-    old_attr = termios.tcgetattr(sys.stdin.fileno())
+    proc = subprocess.Popen(
+        command,
+        executable=exe,
+        preexec_fn=lambda: os.setpgid(os.getpid(), os.getpid()),
+        cwd=os.getcwd(),
+        env=os.environ.copy(),
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+    )
 
-    try:
-        proc = subprocess.Popen(
-            command,
-            executable=exe,
-            preexec_fn=lambda: os.setpgid(os.getpid(), os.getpid()),
-            cwd=os.getcwd(),
-            env=os.environ.copy(),
-            stdin=stdin,
-            stdout=stdout,
-            stderr=stderr,
-        )
-
-        # set the child's process group as new foreground
-        os.tcsetpgrp(sys.stdin.fileno(), proc.pid)
-        # revive the child in case it was stopped before it was made foreground
-        os.kill(proc.pid, signal.SIGCONT)
-
-        status = proc.wait()
-
-    finally:
-        # ignore signals from changing tty
-        old_hdlr = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
-        # make parent group foreground again
-        os.tcsetpgrp(sys.stdin.fileno(), old_pgrp)
-        # restore the handler
-        signal.signal(signal.SIGTTOU, old_hdlr)
-        # restore terminal attributes
-        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_attr)
+    pyshenv.add_job(proc)
+    status = commands.fg(pyshenv)
 
     return status, proc

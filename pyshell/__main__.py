@@ -93,14 +93,14 @@ def main():
         pyshenv.repl = True
 
     if pyshenv.repl:
-        prompt = pyshenv.namespace["prompt"]()
+        prompt = pyshenv.namespace["prompt"]
         complete.enable()
 
         signal.signal(signal.SIGTSTP, lambda *_: log.debug('ignore sigtstp'))
         exec("import pyshell", pyshenv.namespace)
 
         while True:
-            prompt_str = prompt.format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })
+            prompt_str = prompt().format(**{ k: v() if callable(v) else v for k, v in pyshenv.prompt_subs.items() })
 
             try:
                 input_str = input(prompt_str if pyshenv.interactive else "")

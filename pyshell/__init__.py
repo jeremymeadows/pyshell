@@ -1,10 +1,25 @@
-import os, socket, sys
+import os, signal, socket, sys
 
-__version__ = "0.1.0"
+from pyshell import logger
+
+__version__ = "0.2.0"
+log = logger.logger(__name__)
 
 
 def prompt():
     return f"{{user}} {{cwd}} > "
+
+
+class Job:
+    def __init__(self, process):
+        self.proc = process
+        self.status = "stopped"
+        self.notified = False
+        self.nohup = False
+    
+    def __repr__(self):
+        return f"{self.status:8} {" ".join(self.proc.args)}"
+
 
 class PyShellEnv:
     def __init__(self):
@@ -18,8 +33,25 @@ class PyShellEnv:
             "host": socket.gethostname(),
             "cwd": lambda: os.path.join(os.getcwd().replace(os.getenv("HOME", "~"), "~"), ""),
         }
+        self.jobs = dict()
+    
+    def add_job(self, process):
+        self.jobs[max(self.jobs or [0]) + 1] = Job(process)
 
 pyshenv = PyShellEnv()
+
+
+def handle_sighup(*_):
+    log.debug("Sending SIGHUP to all jobs")
+    for job_id, job in pyshenv.jobs.items():
+        if not job.nohup:
+            try:
+                job.proc.send_signal(signal.SIGHUP)
+                log.debug(f"[{job_id}] sent SIGHUP")
+            except ProcessLookupError:
+                pass
+
+signal.signal(signal.SIGHUP, handle_sighup)
 
 
 import importlib, pkgutil
