@@ -30,7 +30,7 @@ def prompt() -> str:
 
 
 # set aliases for commonly used command options 
-alias ".." = "cd .."
+alias .. = cd ..
 alias ls = ls -hF --color --group-directories-first
 alias mkdir = mkdir -p
 alias grep = grep -E --color

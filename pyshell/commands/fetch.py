@@ -42,8 +42,8 @@ def _fetch(*args):
         lines += [f"│ {colors[i % len(colors)]}{name:{size[0]}}{color.reset} │ {val:{size[1]}} │"]
     lines += [("╰─" + "─" * size[0] + "─┴─" + "─" * size[1] + "─╯")]
 
-    lines += [" " + "".join(f"{c}███{color.reset}" for c in [color.black, *colors, color.light_grey])]
-    lines += [" " + "".join(f"{c}███{color.reset}" for c in [color.dark_grey, *colors, color.light_white])]
+    lines += [" " + "".join(f"{c}███{color.reset}" for c in [color.black, *colors, color.white])]
+    lines += [" " + "".join(f"{c}███{color.reset}" for c in [color.grey, *colors, color.light_white])]
 
     if os.get_terminal_size().columns >= len(lines[0]) + 25:
         proc = subprocess.run("kitten icat --detect-support".split(), capture_output=True)

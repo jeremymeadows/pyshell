@@ -52,10 +52,9 @@ python in the shell
 ```sh
 > export DIR = "foo bar"
 > ls
-> bar/   foo/  'foo bar'/
+bar/   foo/  'foo bar'/
 > ls $DIR
-bar:
-foo:
+'foo bar':
 > ls "$DIR"
 'foo bar':
 > ls '$DIR'
@@ -83,13 +82,11 @@ LOREM IPSUM DOLOR SIT AMET
 
 ### Variable expansion
 ```sh
-> import os
->
-> os.environ["NUMBER"] = "2"
+> export NUMBER = 2
 > pow($NUMBER, 7) - 1
 127
 >
-> os.environ["NAME"] = "jeremy"
+> export NAME = "jeremy"
 > print("hello $NAME")
 hello jeremy
 ```

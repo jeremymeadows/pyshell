@@ -23,8 +23,13 @@ def _fg(*args):
         print("fg: no current job")
         return
 
-    log.debug(f"Bringing job {job_id} to foreground")
     job = pyshenv.jobs[job_id]
+    if (status := job.proc.poll()) is not None:
+        print(f"fg: job {job_id} has already terminated with status {status}")
+        del pyshenv.jobs[job_id]
+        return status
+
+    log.debug(f"Bringing job {job_id} to foreground")
 
     try:
         old_pgrp = os.tcgetpgrp(sys.stdin.fileno())
@@ -49,12 +54,6 @@ def _fg(*args):
             print()
         else:
             del pyshenv.jobs[job_id]
-    except ChildProcessError as e:
-        if "No child processes" in str(e):
-            log.warn(f"no child process {job.proc.pid}: probably already reaped")
-            status = 0
-        else:
-            raise e
     finally:
         # Restore the default SIGTSTP behavior
         signal.signal(signal.SIGTSTP, signal.SIG_DFL)
