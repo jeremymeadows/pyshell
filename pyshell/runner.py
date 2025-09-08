@@ -161,20 +161,22 @@ def parse(toks: list[str]):
                     log.exception(e)
                     print(f"{color.red}Command substitution failed: {e}{color.reset}")
                     print(f"{color.red}{output}{color.reset}")
-            case string if string and string[0] in ('"', "'") and string[0] == string[-1]:
-                command_str += string + " "
-                if toks[0] != "alias":
-                    if string[0] == '"':
-                        expanded = glob.glob(os.path.expanduser(os.path.expandvars(string[1:-1])))
-                        toks[i:i+1] = expanded
-                    else:
-                        toks[i] = string[1:-1]
-            case g if "*" in g or "?" in g:
-                command_str += g + " "
-                if toks[0] != "alias":
-                    expanded = glob.glob(os.path.expanduser(os.path.expandvars(g)))
+            case pattern if any(c in pattern for c in ["*", "?"]) and not pattern.startswith("'"):
+                command_str += pattern + " "
+                # aliases and exports should be expanded when they are called, not created
+                if toks[0] not in ["alias", "export"]:
+                    expanded = glob.glob(os.path.expanduser(os.path.expandvars(pattern)))
                     toks[i:i + 1] = expanded
                 i += len(expanded) - 1
+            case string if string and string[0] in ('"', "'") and string[0] == string[-1]:
+                command_str += string + " "
+                # aliases and exports should be expanded when they are called, not created
+                if toks[0] not in ["alias", "export"]:
+                    if string[0] == '"':
+                        expanded = os.path.expanduser(os.path.expandvars(string[1:-1]))
+                        toks[i] = expanded
+                    else:
+                        toks[i] = string[1:-1]
             case t:
                 command_str += t + " "
                 toks[i] = os.path.expanduser(os.path.expandvars(t))
@@ -233,7 +235,7 @@ def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys
                 if code:
                     try:
                         func = eval if expression else exec
-                        log.debug(f"running as {'eval' if expression else 'exec'}\n{command_str}")
+                        log.info(f"running code as {'eval' if expression else 'exec'}:\n{command_str}")
                         if (res := func(command_str, pyshenv.namespace, pyshenv.namespace)) is not None:
                             print(res) 
                         log.debug(f"ok{f"\n{res}" if expression else ""}")
@@ -251,6 +253,7 @@ def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys
 
 
 def spawn_process(exe, command, stdin, stdout, stderr):
+    log.info(f"spawning process: {exe} {command}")
     proc = subprocess.Popen(
         command,
         executable=exe,

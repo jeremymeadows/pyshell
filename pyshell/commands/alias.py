@@ -1,32 +1,48 @@
 import argparse
 import re
 import shlex
+import textwrap
 
 from pyshell import pyshenv
 
+#                         ( name ) =  ( "value"                  | 'value'                  | value )
+pattern = re.compile(r'''(\S+)(?: ?= ?("(?:(?:[^"\\]*(?:\\.)?)*)"|'(?:(?:[^'\\]*(?:\\.)?)*)'|.*))''')
 
 def _alias(*args):
-    parser = argparse.ArgumentParser(prog="alias", description="Create or display command aliases.")
-    # parser.register('type', 'alias', lambda s: re.match(".* ?= ?[\"'].*[\"']"))
-    parser.register('type', 'alias', lambda s: s==s)
-    parser.add_argument("alias", type="alias", nargs="?", help="alias definitions in the form `name='value'`")
+    parser = argparse.ArgumentParser(
+        prog="alias",
+        description="Create or display command aliases.",
+        formatter_class = argparse.RawTextHelpFormatter,
+        epilog=textwrap.dedent('''\
+            examples:
+                # quotes are optional except to preserve spaces
+                alias .. = cd ..
+                alias ll = ls -la
+                alias projects = cd "~/Project Directory/"
 
-    try:
-        _ = parser.parse_args(["foo"])
-    except SystemExit:
-        return
+                # remove an alias by setting it to an empty command
+                alias foo = echo foo
+                alias foo =
+            '''
+        ),
+    )
+    parser.add_argument("alias", type=str, help="alias definitions in the form `alias=command`")
 
     if not args:
-        for name, value in pyshenv.aliases.items():
-            print(f"alias {name}=\"{value}\"")
-    else:
-        args = " ".join(args).strip()
-        if "=" not in args:
-            print("alias: invalid alias definition. Use the form name='value'")
-            return
+        for alias, command in pyshenv.aliases.items():
+            print(f"alias {alias} = {command}")
+        return
 
-        alias, command = map(str.strip, args.split("=", 1))
-        if any(c.isspace() for c in alias):
-            print("alias: alias name cannot contain spaces")
+    args = re.fullmatch(pattern, " ".join(args))
+    if args:
+        alias, command = args.groups()
+    else:
+        try:
+            parser.parse_args(["--help"])
+        except SystemExit:
             return
-        pyshenv.aliases[alias] = command.strip('"').strip("'")
+    
+    if not command:
+        del pyshenv.aliases[alias]
+    else:
+        pyshenv.aliases[alias] = command

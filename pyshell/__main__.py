@@ -103,6 +103,7 @@ def main():
 
             try:
                 input_str = input(prompt_str if pyshenv.interactive else "")
+                log.info(f"input line: {input_str}")
                 readline.write_history_file(os.environ.get("HISTORY"))
             except KeyboardInterrupt:
                 log.debug("sigint on repl")

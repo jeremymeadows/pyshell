@@ -25,27 +25,41 @@ python -m pyshell
 
 ### Set environment variables
 ```python
+> # using Python `environ` dict
 > import os
-> os.environ['ENV_VAR'] = 'value'
-> echo $ENV_VAR
-value
+> os.environ["ENV_VAR1"] = "value"
+> # exporting new variable (creates Python variable ENV_VAR2 and adds to `environ`)
+> export ENV_VAR2 = "second variable"
+> # exporting existing variable
+> ENV_VAR3 = 7
+> export ENV_VAR3
+>
+> echo $ENV_VAR1 $ENV_VAR2 $ENV_VAR3
+value second variable 7
 ```
 
 ### Define aliases
 ```sh
-> alias ls="ls --color"
-> alias p="print('python in the shell')"
+> # quotes are optional unless they are used to preserve spaces, like in filenames, for example
+> alias ls = ls --color
+> alias proj = cd "~/Projects/project with space/"
+> alias p = print("python in the shell")
 > p
 python in the shell
 ```
 
-### Use Python modules
-```python
-> cd ~/directory
-> from math import pi
-> r = 6
-> 2*pi * r**2
-226.1946710584651
+### Use double/single quotes to control expansion
+```sh
+> export DIR = "foo bar"
+> ls
+> bar/   foo/  'foo bar'/
+> ls $DIR
+bar:
+foo:
+> ls "$DIR"
+'foo bar':
+> ls '$DIR'
+ls: cannot access '$DIR': No such file or directory
 ```
 
 ### File input/output redirection
@@ -83,7 +97,7 @@ hello jeremy
 ### Pipelines
 ```sh
 > cat file.txt | cowsay | lolcat
-> ls ~ | grep foo
+> ls ~ | grep filename
 ```
 
 ### Job control
