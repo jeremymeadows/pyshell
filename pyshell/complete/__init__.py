@@ -9,17 +9,25 @@ log = logger.logger(__name__)
 
 class PyShellCompleter:
     def __init__(self):
+        self._bins = []
+        self._path = ""
         self.buf = ""
         self.prefixes = dict()
-        self.bins = []
-        for path in os.getenv("PATH", "").split(os.pathsep):
-            try:
-                for file in os.listdir(path):
-                    if os.access(os.path.join(path, file), os.X_OK):
-                        self.bins += [file]
-            except FileNotFoundError:
-                pass
-        self.bins = sorted(set(self.bins))
+    
+    @property
+    def bins(self):
+        # update binaries cache if path has changed
+        if (PATH := os.getenv("PATH", "")) != self._path:
+            self._path = PATH
+            for path in self._path.split(os.pathsep):
+                try:
+                    for file in os.listdir(path):
+                        if os.access(os.path.join(path, file), os.X_OK):
+                            self._bins += [file]
+                except FileNotFoundError:
+                    pass
+            self._bins = sorted(set(self._bins))
+        return self._bins
 
     def register(self, entries):
         for prefix, options in entries.items():

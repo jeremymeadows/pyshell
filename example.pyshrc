@@ -1,0 +1,52 @@
+### This file is sourced into `global()` scope when PyShell starts
+
+import os
+
+print("Welcome to PyShell!")
+
+
+# set environment variables
+export TERM = kitty
+export EDITOR = nvim
+export PAGER = less
+
+
+# set PATH with common binary directories if they exist
+export PATH = os.pathsep.join([path for path in (
+    "$HOME/.local/bin",
+    "$HOME/.cargo/bin",
+    "$HOME/.bun/bin",
+) if os.path.exists(path) ] + [
+    "$PATH",
+])
+
+# override the default `prompt` function with a fancy one
+def prompt() -> str:
+    from pyshell.utils.termcolors import fg as color
+
+    uid_color = color.green if os.geteuid() != 0 else color.red
+    cwd_color = color.blue if os.access(os.getcwd(), os.W_OK) else color.red
+    return f"{uid_color}{{user}}{color.green}@{{host}} {cwd_color}{{cwd}}{color.white}\n> "
+
+
+# set aliases for commonly used command options 
+alias ".." = "cd .."
+alias ls = ls -hF --color --group-directories-first
+alias mkdir = mkdir -p
+alias grep = grep -E --color
+alias df = df -h
+alias du = du -hs
+alias rm = trash
+alias vi = $EDITOR
+
+
+# create a custom command
+from pyshell.commands import command
+
+@command("rcow")
+def _rainbowcow_command(*args):
+    """A command that prints a rainbow cow saying something"""
+    if not args:
+        $("cowsay Moo | lolcat")
+    else:
+        $(["cowsay", *args, "| lolcat"])
