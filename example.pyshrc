@@ -12,13 +12,14 @@ export PAGER = less
 
 
 # set PATH with common binary directories if they exist
-export PATH = os.pathsep.join([path for path in (
+PATH = os.pathsep.join([path for path in (
     "$HOME/.local/bin",
     "$HOME/.cargo/bin",
     "$HOME/.bun/bin",
-) if os.path.exists(path) ] + [
+ ) if os.path.exists(path) ] + [
     "$PATH",
-])
+ ])
+export PATH
 
 # override the default `prompt` function with a fancy one
 def prompt() -> str:

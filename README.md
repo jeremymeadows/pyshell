@@ -75,6 +75,8 @@ bar
 ```sh
 > ls $(os.getenv("HOME"))
 Desktop Downloads Documents Music Pictures Video
+> readlink $(which pysh)
+/home/jeremy/Projects/pyshell/pysh
 > file_name = "loremipsum.txt"
 > echo $(open(file_name).readlines()[0].upper())
 LOREM IPSUM DOLOR SIT AMET
@@ -173,3 +175,14 @@ except ModuleNotFoundError:
 
 completer.register(entries)
 ```
+
+## Known Issues / In Development
+
+One goal is for PyShell to be intuitive as a combination of Python and shell scripting,
+so if something doesn't work *but feels like it should* it can probably be treated as a bug.
+
+- bitwise OR does not work (`2 | 3`) because it is treated as pipe
+- does not yet handle multiline input
+- `export` should also evaluate expressions/pipelines if given
+- pipes in aliases should not be processed during the initial call to `alias`
+- can only pipe out of Python, not into (eg. `print("hello world") | lolcat` works but `pwd | input()` does not)

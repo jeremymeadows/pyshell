@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import glob
 import io
@@ -22,7 +23,7 @@ def run(inpt: str | list[str], capture_output=False):
     if "\n" in input_str:
         tokens = ""
         log.debug("newline detected, treating as python statement")
-        pipeline = [(["^"], input_str, sys.stdin, sys.stdout, sys.stderr)]
+        pipeline = [(["\x00"], input_str, sys.stdin, sys.stdout, sys.stderr)]
     else:
         tokens = tokenize(input_str)
         log.debug(f"parsed tokens: {tokens}")
@@ -30,21 +31,26 @@ def run(inpt: str | list[str], capture_output=False):
     log.debug(f"parsed pipeline: {pipeline}")
 
     status = 0
+    prev_stdout = sys.stdout
 
     for i, (command, command_str, stdin, stdout, stderr) in enumerate(pipeline):
         if i > 0 and stdin == sys.stdin:
-            stdin = process.stdout
+            stdin = prev_stdout
+
         if i + 1 < len(pipeline) and stdout == sys.stdout:
             stdout = subprocess.PIPE
-        if capture_output and i + 1 == len(pipeline):
+        elif capture_output and i + 1 == len(pipeline):
             stdout = subprocess.PIPE
 
-        status, process = execute(command, command_str, stdin, stdout, stderr)
+        status, prev_stdout, _ = execute(command, command_str, stdin, stdout, stderr)
         if status != 0:
             break
 
     if capture_output:
-        output = (process.stdout if status == 0 else process.stderr).read().decode()
+        if type(prev_stdout) is io.StringIO:
+            output = prev_stdout.getvalue()
+        else:
+            output = (stdout if status == 0 else stderr).read().decode()
     return status if not capture_output else (status, output)
 
 
@@ -192,6 +198,7 @@ def parse(toks: list[str]):
 def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
     try:
         status = 0
+        out = None
         proc = None
 
         match command[0]:
@@ -199,71 +206,95 @@ def execute(command, command_str, stdin=sys.stdin, stdout=sys.stdout, stderr=sys
                 return
             case "import":
                 try:
-                    exec("import " + " ".join(command[1:]), pyshenv.namespace, pyshenv.namespace)
+                    exec("import " + " ".join(command[1:]), pyshenv.namespace)
                 except ModuleNotFoundError as e:
                     suggestion = traceback.format_exception(e)[-1].strip()
                     print(f"{color.red}{suggestion}{color.reset}")
                     status = 1
             case _ if command[0] in commands.__all__:
                 log.debug(f"running built-in `{command[0]}` with args {command[1:]}")
-                status = getattr(commands, command[0])(*command[1:]) or 0
+                if stdout == -1:
+                    stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    status = getattr(commands, command[0])(*command[1:]) or 0
+                out = stdout
             case _ if exe := shutil.which(command[0]):
                 log.debug(f"spawning process {command[0]} ({exe})")
                 status, proc = spawn_process(exe, command, stdin, stdout, stderr)
+                out = proc.stdout
                 log.debug(f"{command[0]} exited with status={status}")
-            case _:
+            case _ if not command[0][0] == "^":
                 log.debug(f"running as python code\n{command_str}")
                 command_str = os.path.expandvars(command_str)
                 command_str = re.sub(r"\$\((.*)\)", r"pyshell.runner.run(\1)", command_str)
-
-                expression = True
-                try:
-                    log.debug(f"compiling as expression")
-                    code = compile(command_str, "<string>", "eval")
-                except SyntaxError:
-                    expression = False
-                    log.debug("failed")
-                    try:
-                        log.debug(f"compiling code as statement")
-                        code = compile(command_str, "<string>", "exec")
-                    except SyntaxError as e:
-                        log.error(f"failed")
-                        log.exception(e)
-                        code = None
-                        status = 1
-
-                if code:
-                    try:
-                        func = eval if expression else exec
-                        log.info(f"running code as {'eval' if expression else 'exec'}:\n{command_str}")
-                        if (res := func(command_str, pyshenv.namespace, pyshenv.namespace)) is not None:
-                            print(res) 
-                        log.debug(f"ok{f"\n{res}" if expression else ""}")
-                        status = 0
-                    except Exception as e:
-                        log.error(f"error during {'eval' if expression else 'exec'}")
-                        log.exception(e)
-                        suggestion = traceback.format_exception(e)[-1].strip()
-                        print(f"{color.red}{suggestion}{color.reset}")
-                        status = 1
+                status, out = run_python(command_str, stdout)
+            case _:
+                print(f"{color.red}Unknown command: {command[0]}{color.reset}")
     except KeyboardInterrupt:
         print()
-    
-    return (status, proc)
+
+    return (status, out, proc)
+
+
+def run_python(command_str, stdout=sys.stdout):
+    status = 0
+    buf = None
+
+    expression = True
+    try:
+        log.debug(f"compiling as expression")
+        code = compile(command_str, "<string>", "eval")
+    except SyntaxError:
+        expression = False
+        log.debug("failed")
+        try:
+            log.debug(f"compiling code as statement")
+            code = compile(command_str, "<string>", "exec")
+        except SyntaxError as e:
+            log.error(f"failed")
+            log.exception(e)
+            code = None
+            status = 1
+
+    if code:
+        if stdout == -1:
+            stdout = io.StringIO()
+
+        try:
+            func = eval if expression else exec
+            log.info(f"running code as {'eval' if expression else 'exec'}:\n{command_str}")
+            with contextlib.redirect_stdout(stdout):
+                if (res := func(command_str, pyshenv.namespace, pyshenv.namespace)) is not None:
+                    print(res) 
+            log.debug(f"ok{f"\n{res}" if expression else ""}")
+            status = 0
+        except Exception as e:
+            log.error(f"error during {'eval' if expression else 'exec'}")
+            log.exception(e)
+            suggestion = traceback.format_exception(e)[-1].strip()
+            print(f"{color.red}{suggestion}{color.reset}")
+            status = 1
+    return status, stdout
 
 
 def spawn_process(exe, command, stdin, stdout, stderr):
     log.info(f"spawning process: {exe} {command}")
+
+    string = type(stdin) is io.StringIO
+
     proc = subprocess.Popen(
         command,
         executable=exe,
         preexec_fn=lambda: os.setpgid(os.getpid(), os.getpid()),
         cwd=os.getcwd(),
         env=os.environ.copy(),
-        stdin=stdin,
+        stdin=stdin if not string else subprocess.PIPE,
         stdout=stdout,
         stderr=stderr,
     )
+
+    if string:
+        proc.communicate(input=stdin.getvalue().encode())
 
     pyshenv.add_job(proc)
     status = commands.fg()

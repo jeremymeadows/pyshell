@@ -25,7 +25,6 @@ def _fg(*args):
 
     job = pyshenv.jobs[job_id]
     if (status := job.proc.poll()) is not None:
-        print(f"fg: job {job_id} has already terminated with status {status}")
         del pyshenv.jobs[job_id]
         return status
 
@@ -42,20 +41,23 @@ def _fg(*args):
         job.status = 'running'
         job.notified = False
 
-        status = os.waitpid(job.proc.pid, os.WUNTRACED)[1]
+        try:
+            status = os.waitpid(job.proc.pid, os.WUNTRACED)[1]
+            # if stopped from a signal
+            if os.WIFSTOPPED(status):
+                log.debug(f"process {job.proc.pid} stopped")
+                job.status = 'stopped'
+                job.notified = False
 
-        # if stopped from a signal
-        if os.WIFSTOPPED(status):
-            log.debug(f"process {job.proc.pid} stopped")
-            job.status = 'stopped'
-            job.notified = False
+                status = 0
+                print()
+            else:
+                del pyshenv.jobs[job_id]
+        except ChildProcessError:
+            log.warn("ignoring ChildProcessError")
 
-            status = 0
-            print()
-        else:
-            del pyshenv.jobs[job_id]
     finally:
-        # Restore the default SIGTSTP behavior
+        # restore the default SIGTSTP behavior
         signal.signal(signal.SIGTSTP, signal.SIG_DFL)
 
         # ignore signals from changing tty
