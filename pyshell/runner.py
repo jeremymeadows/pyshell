@@ -114,6 +114,8 @@ def parse(toks: list[str]):
         match toks[i]:
             case t if t.startswith("#"):
                 break
+            case "alias" if i + 2 < len(toks) and toks[i + 2] == "=":
+                toks[i + 3:] = [" ".join(toks[i + 3:])]
             case "|":
                 command = toks[:i]
                 pipeline += [(command, command_str, r, w, e)]

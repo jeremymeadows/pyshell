@@ -38,6 +38,7 @@ alias grep = grep -E --color
 alias df = df -h
 alias du = du -hs
 alias rm = trash
+alias fortune = fortune | cowsay | lolcat
 alias vi = $EDITOR
 
 

@@ -43,6 +43,7 @@ value second variable 7
 > # quotes are optional unless they are used to preserve spaces, like in filenames, for example
 > alias ls = ls --color
 > alias proj = cd "~/Projects/project with space/"
+> alias f = fortune | cowsay | lolcat
 > alias p = print("python in the shell")
 > p
 python in the shell
@@ -153,23 +154,25 @@ def _rainbowcow_command(*args):
 ### Custom tab completions
 A dictionary can be registered with the completer which has a prefix as the key.
 If the current text matches the prefix then the value array will be presented as suggestions for the next argument.
+Dynamic entries will run a function when `tab` is pressed, and the returned list will be offered as suggestions.
 
 ```python
 from pyshell.complete import completer
 
 entries = {
-    "docker": ["build", "run", "exec", "ps", "images", "logs", "rm", "stop", "start"],
+    "docker": ["build", "run", "exec", "ps", "image", "pull", "push", "logs", "rm"],
+    "docker image": ["build", "inspect", "ls", "prune", "rm", "save", "tag"],
 }
 
 try:
-    # if the docker package is installed, add completions to the container names
+    # if the docker package is installed, add dynamic completions for the container names
     import docker
     
-    client = docker.from_env()
-    entries["docker rm"] = []
+    def container_names():
+        client = docker.from_env()
+        return [c.name for c in client.containers.list(all=True)]
 
-    for c in client.containers.list():
-        entries["docker rm"] += [c.name]
+    completer.register_dynamic("docker rm", container_names)
 except ModuleNotFoundError:
     pass
 
@@ -184,5 +187,4 @@ so if something doesn't work *but feels like it should* it can probably be treat
 - bitwise OR does not work (`2 | 3`) because it is treated as pipe
 - does not yet handle multiline input
 - `export` should also evaluate expressions/pipelines if given
-- pipes in aliases should not be processed during the initial call to `alias`
 - can only pipe out of Python, not into (eg. `print("hello world") | lolcat` works but `pwd | input()` does not)
