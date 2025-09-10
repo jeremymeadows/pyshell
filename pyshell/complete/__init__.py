@@ -3,7 +3,7 @@ import glob
 import os
 import readline
 
-from pyshell import commands, logger
+from pyshell import pyshenv, commands, logger
 
 log = logger.logger(__name__)
 
@@ -14,7 +14,7 @@ class PyShellCompleter:
         self._path = ""
         self.buf = ""
         self.prefixes = dict()
-    
+
     @property
     def bins(self):
         # update binaries cache if path has changed
@@ -58,17 +58,25 @@ class PyShellCompleter:
                 self.buf += "\x00"
 
         if self.buf.startswith((".", "/", "~")) and " " not in self.buf:
-            options = [m for m in self.glob_search_path() if (p := self.expand_match_path(m)) and os.path.isdir(p) or os.access(p, os.X_OK)]
+            matches = [m for m in self.glob_search_path() if (p := self.expand_match_path(m)) and os.path.isdir(p) or os.access(p, os.X_OK)]
         elif " " not in self.buf:
-            options = self.bins + commands.__all__ + [b for b in dir(builtins) if b.islower()]
+            matches = self.bins + commands.__all__ + list(pyshenv.aliases.keys()) + [b for b in dir(builtins) if b.islower()]
         else:
-            options = self.prefixes.get(self.buf.rsplit(maxsplit=1)[0], [])
+            matches = self.prefixes.get(self.buf.rsplit(maxsplit=1)[0], [])
 
-        matches = [f for f in options if f.startswith(text)]
+        if "." in text and "." in self.buf[1:]:
+            toks = text.split(".")
+            ndx = 0
+            obj = pyshenv.namespace.get(toks[ndx], None)
 
-        if not matches:
-            matches = self.glob_search_path()
+            while next_obj := getattr(obj, toks[ndx + 1], None):
+                obj = next_obj
+                ndx += 1
+            if obj:
+                t = text[:text.rfind(".")] + "."
+                matches += [t + e for e in dir(obj)]
 
+        matches = [f for f in matches if f.startswith(text)] + self.glob_search_path()
         return matches[state] if state < len(matches) else None
 
 completer = PyShellCompleter()

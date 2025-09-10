@@ -2,7 +2,7 @@ import os, signal, socket, sys
 
 from pyshell import logger
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 log = logger.logger(__name__)
 
 
