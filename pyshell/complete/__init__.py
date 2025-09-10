@@ -33,6 +33,9 @@ class PyShellCompleter:
     def register(self, entries):
         for prefix, options in entries.items():
             self.prefixes[prefix] = options
+    
+    def register_dynamic(self, name, func):
+        self.prefixes[name] = func
 
     def glob_search_path(self):
         search_path = os.path.expanduser(self.buf.rsplit(maxsplit=1)[-1].replace("\x00", ""))
@@ -59,24 +62,26 @@ class PyShellCompleter:
 
         if self.buf.startswith((".", "/", "~")) and " " not in self.buf:
             matches = [m for m in self.glob_search_path() if (p := self.expand_match_path(m)) and os.path.isdir(p) or os.access(p, os.X_OK)]
+        elif entries := self.prefixes.get(self.buf.rsplit(maxsplit=1)[0], None):
+            matches = entries() if callable(entries) else entries
         elif " " not in self.buf:
             matches = self.bins + commands.__all__ + list(pyshenv.aliases.keys()) + [b for b in dir(builtins) if b.islower()]
-        else:
-            matches = self.prefixes.get(self.buf.rsplit(maxsplit=1)[0], [])
 
-        if "." in text and "." in self.buf[1:]:
-            toks = text.split(".")
-            ndx = 0
-            obj = pyshenv.namespace.get(toks[ndx], None)
+        if not entries:
+            if "." in text and "." in self.buf[1:]:
+                toks = text.split(".")
+                ndx = 0
+                obj = pyshenv.namespace.get(toks[ndx], None)
 
-            while next_obj := getattr(obj, toks[ndx + 1], None):
-                obj = next_obj
-                ndx += 1
-            if obj:
-                t = text[:text.rfind(".")] + "."
-                matches += [t + e for e in dir(obj)]
+                while next_obj := getattr(obj, toks[ndx + 1], None):
+                    obj = next_obj
+                    ndx += 1
+                if obj:
+                    t = text[:text.rfind(".")] + "."
+                    matches += [t + e for e in dir(obj)]
+            matches += self.glob_search_path()
 
-        matches = [f for f in matches if f.startswith(text)] + self.glob_search_path()
+        matches = [f for f in matches if f.startswith(text)]
         return matches[state] if state < len(matches) else None
 
 completer = PyShellCompleter()
